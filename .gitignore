@@ -1,0 +1,23 @@
+# Private input books: never publish the user's TXT files
+/*.txt
+/fixtures-private/
+**/data/
+**/uploads/
+**/backups/
+.env
+.env.*
+!.env.example
+**/target/
+**/node_modules/
+**/dist/
+**/coverage/
+**/test-results/
+**/playwright-report/
+*.log
+*.pid
+.idea/
+.vscode/
+.DS_Store
+
+/.local-dev.json
+*.tsbuildinfo

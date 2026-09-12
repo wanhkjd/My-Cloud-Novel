@@ -1,0 +1,8 @@
+* text=auto
+*.java text eol=lf
+*.vue text eol=lf
+*.ts text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.sql text eol=lf
+*.properties text eol=lf
