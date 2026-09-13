@@ -34,6 +34,7 @@ cd D:\javaweb\workspace\MyCloudNovel
 
 - 浏览器测试若检测到 JVM 启动参数、Spring JSON / 外部配置、JNDI 或 Redis URL / 集群覆盖，会在启动前拒绝。请清除这些继承配置后再运行，不能让高优先级配置绕过隔离连接。
 - 测试固定 schema 与账户名，拒绝 root / 业务账户；不得把正式数据放进这两个测试库。两个测试账户各自仅有本库的 DML 权限。
+- 后端集成测试在创建连接前拒绝继承的 Redis URL / 集群 / Sentinel / JNDI 配置，包括空 URL；空字符串不能表示禁用 Redis URL。
 - `IntegrationSettings` 在创建连接池前覆盖运行配置；`e2eEnvironment` 明确覆盖数据库、Redis、管理员和原件路径，测试目标不能从真实 DB_URL 派生。
 - 本地和 CI 的表结构由 DBA / 初始化步骤显式导入 `schema.sql`。所有运行 / 测试都使用 `spring.sql.init.mode=never`，不授予测试账户 CREATE / DROP。
 - 后端清理前核对 `SELECT DATABASE()`，只删除专用库内合成书目及其外键关联记录；不会连接 / 清空真实业务库。
@@ -76,7 +77,7 @@ npm.cmd audit --registry=https://registry.npmjs.org --audit-level=moderate
 - BookmarkServiceTest：权限优先、主人 / 访客过滤、感想规范化 / 长度、同位置冲突、编辑和不存在处理。
 - NovelFileStorageTest：LocalNovelFileStorage 在临时目录内的原字节读写、禁止覆盖、UUID / 路径校验、缺失原件、重复删除和符号链接防护。
 - TxtNovelParserTest：UTF-8 / BOM、GB18030、章节 / 卷识别、标题边界、无章节退化、空白 / 二进制 / 超限校验。
-- IntegrationSettingsTest：不继承正式连接 / 原件目录，拒绝 root、缺凭据、连接参数注入和共享 Redis 前缀。
+- IntegrationSettingsTest：不继承正式连接 / 原件目录，拒绝 root、缺凭据、连接参数注入、共享 Redis 前缀和外部连接覆盖；不连接服务器的 Redis 自动配置回归测试校验最终 host / port / database / 凭据绑定。
 - LocalNovelTest：可选只读解析，核对编码、1,507 章 / 3 卷、连续索引与原件哈希不变。
 - Spotless + JavaDoc：生产 / 测试统一格式，公开 API 的中文 JavaDoc 通过 doclint=all / failOnWarnings。
 

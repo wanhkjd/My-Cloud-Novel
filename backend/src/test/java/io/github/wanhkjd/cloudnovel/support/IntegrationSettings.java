@@ -48,8 +48,6 @@ public final class IntegrationSettings {
         properties.put(
                 "spring.data.redis.password", environment.getOrDefault("TEST_REDIS_PASSWORD", ""));
         properties.put("spring.data.redis.ssl.enabled", "false");
-        // Boot 优先使用 Redis URL，因此必须禁用可能继承的运行环境 URL。
-        properties.put("spring.data.redis.url", "");
         properties.put("spring.data.redis.database", 15);
         properties.put("spring.session.redis.namespace", namespace);
         properties.put("server.servlet.session.cookie.secure", false);
