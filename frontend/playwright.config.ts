@@ -27,6 +27,7 @@ export default defineConfig({
         DB_URL: 'jdbc:h2:mem:e2e;MODE=MySQL;DB_CLOSE_DELAY=-1',
         DB_USERNAME: 'sa',
         DB_PASSWORD: '',
+        DB_INIT_MODE: 'always',
         BOOK_STORAGE: './target/e2e-books',
         COOKIE_SECURE: 'false',
       },

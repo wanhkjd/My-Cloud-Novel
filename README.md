@@ -29,12 +29,14 @@
 
 ## 技术栈
 
-- 后端：Java 21、Spring Boot 3.5、Spring Security、Spring JDBC、Bean Validation、Maven。
+- 后端：Java 21、Spring Boot 3.5、Spring Security、**MyBatis（Controller / Service / Mapper 三层）**、Bean Validation、Maven。
 - 前端：Vue 3、TypeScript、Vue Router、Vite、Lucide 图标、原生 CSS。
 - 默认数据库：**文件型 H2**；原始 TXT 存在后端私有目录，章节与元数据存在数据库。
-- 测试：JUnit / MockMvc、Vitest / Vue Test Utils、Playwright Chromium + axe 无障碍检查。
+- 测试与规范：JUnit / MockMvc、ArchUnit 分层检查、Spotless 格式检查、严格 JavaDoc 校验；Vitest / Vue Test Utils、Playwright Chromium + axe 无障碍检查。
 
-仓库包含 MySQL JDBC 驱动作为后续迁移准备；**MySQL 尚未验收，不应直接当作已支持的生产数据库**。
+仓库包含 MySQL JDBC 驱动；**MySQL 尚未验收，不应直接当作已支持的生产数据库**。无需安装 Redis。需要自行配置 MySQL 时，按 [MySQL / Redis 环境说明](docs/mysql-redis-setup.md) 操作，切换前备份，既有 H2 阅读数据不会自动迁移。
+
+后端各层职责与接口见 [架构说明](docs/architecture.md)，编码、中文注释和新增功能流程见 [后端开发规范](docs/backend-development.md)。
 
 ## 本机启动（Windows）
 
@@ -45,7 +47,7 @@ cd D:\javaweb\workspace\MyCloudNovel
 .\scripts\Start-Local.ps1
 ```
 
-启动脚本会执行后端测试打包、安装缺失的前端依赖、前端测试与构建，然后隐藏启动本地进程：
+启动脚本会执行后端格式/分层/测试/JavaDoc 校验并打包、安装缺失的前端依赖、前端测试与构建，然后隐藏启动本地进程：
 
 - 前端：[http://127.0.0.1:5173](http://127.0.0.1:5173)
 - 后端健康检查：[http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health)
@@ -93,7 +95,7 @@ npm.cmd run dev
 ## 验证与测试
 
 ```powershell
-# 单元/API测试、TypeScript检查、前端构建和格式检查
+# 后端格式/分层/单元/API/JavaDoc、脚本、前端测试/类型/构建和文档格式检查
 .\scripts\Test.ps1
 
 # 首次运行浏览器测试前安装 Chromium

@@ -18,11 +18,7 @@ if (-not (Test-Path -LiteralPath $envFile)) {
     $password = [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
     [System.IO.File]::WriteAllText($envFile, "ADMIN_USERNAME=admin" + [Environment]::NewLine + "ADMIN_PASSWORD=$password" + [Environment]::NewLine + "COOKIE_SECURE=false" + [Environment]::NewLine)
 }
-foreach ($line in Get-Content -LiteralPath $envFile -Encoding UTF8) {
-    if ($line -match '^(ADMIN_USERNAME|ADMIN_PASSWORD|COOKIE_SECURE|DB_URL|DB_USERNAME|DB_PASSWORD|BOOK_STORAGE)=(.*)$') {
-        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
-    }
-}
+& (Join-Path $PSScriptRoot 'Import-LocalConfig.ps1') -Path $envFile
 if ([string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD) -or $env:ADMIN_PASSWORD.Length -lt 12) {
     throw "Set ADMIN_PASSWORD to at least 12 characters in $envFile."
 }
@@ -31,7 +27,7 @@ $env:SERVER_PORT = '8080'
 $env:API_PROXY_TARGET = 'http://127.0.0.1:8080'
 if (-not $SkipBuild) {
     Push-Location $backend
-    try { & mvn.cmd -q -ntp package; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
+    try { & mvn.cmd -q -ntp verify; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
     Push-Location $frontend
     try {
         if (-not (Test-Path -LiteralPath (Join-Path $frontend 'node_modules'))) { & npm.cmd ci; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' } }

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.wanhkjd.cloudnovel.mapper.ReadingMapper">
+  <sql id="progressProjection">
+    SELECT p.book_id, b.title AS book_title, b.chapter_count, p.chapter_index, p.paragraph_index,
+           c.title AS chapter_title, p.updated_at
+    FROM reading_progress p JOIN books b ON p.book_id = b.id
+    JOIN chapters c ON c.book_id = p.book_id AND c.chapter_index = p.chapter_index
+  </sql>
+  <select id="findProgress" resultType="io.github.wanhkjd.cloudnovel.vo.ProgressView">
+    <include refid="progressProjection"/> ORDER BY p.updated_at DESC, p.book_id
+  </select>
+  <select id="findProgressByBook" resultType="io.github.wanhkjd.cloudnovel.vo.ProgressView">
+    <include refid="progressProjection"/> WHERE p.book_id = #{bookId}
+  </select>
+  <insert id="insertProgress">
+    INSERT INTO reading_progress (book_id, chapter_index, paragraph_index, updated_at)
+    VALUES (#{bookId}, #{chapterIndex}, #{paragraphIndex}, #{updatedAt})
+  </insert>
+  <update id="updateProgress">
+    UPDATE reading_progress SET chapter_index = #{chapterIndex}, paragraph_index = #{paragraphIndex},
+                                updated_at = #{updatedAt} WHERE book_id = #{bookId}
+  </update>
+  <select id="findSession" resultType="io.github.wanhkjd.cloudnovel.entity.ReadingSessionEntity">
+    SELECT id, book_id, chapter_index, paragraph_index, started_at, elapsed_seconds, reading_day, updated_at
+    FROM reading_sessions WHERE id = #{id}
+  </select>
+  <sql id="sessionProjection">
+    SELECT s.id, s.book_id, b.title AS book_title, s.chapter_index, s.paragraph_index,
+           c.title AS chapter_title, s.started_at, s.elapsed_seconds, s.updated_at
+    FROM reading_sessions s JOIN books b ON s.book_id = b.id
+    JOIN chapters c ON c.book_id = s.book_id AND c.chapter_index = s.chapter_index
+  </sql>
+  <select id="findSessionView" resultType="io.github.wanhkjd.cloudnovel.vo.ReadingSessionView">
+    <include refid="sessionProjection"/> WHERE s.id = #{id}
+  </select>
+  <insert id="insertSession">
+    INSERT INTO reading_sessions (id, book_id, chapter_index, paragraph_index, started_at,
+                                  elapsed_seconds, reading_day, updated_at)
+    VALUES (#{id}, #{bookId}, #{chapterIndex}, #{paragraphIndex}, #{startedAt},
+            #{elapsedSeconds}, #{readingDay}, #{updatedAt})
+  </insert>
+  <!-- 使用条件更新作为第二道防线，旧累计值不能覆盖更大的已保存值。 -->
+  <update id="advanceSession">
+    UPDATE reading_sessions SET elapsed_seconds = #{elapsedSeconds}, chapter_index = #{chapterIndex},
+                                paragraph_index = #{paragraphIndex}, updated_at = #{updatedAt}
+    WHERE id = #{id} AND elapsed_seconds &lt; #{elapsedSeconds}
+  </update>
+  <select id="findHistory" resultType="io.github.wanhkjd.cloudnovel.vo.ReadingSessionView">
+    <include refid="sessionProjection"/> ORDER BY s.updated_at DESC, s.id LIMIT #{limit}
+  </select>
+  <select id="sumSeconds" resultType="long">
+    SELECT COALESCE(SUM(elapsed_seconds), 0) FROM reading_sessions
+  </select>
+  <select id="sumSecondsOnDay" resultType="long">
+    SELECT COALESCE(SUM(elapsed_seconds), 0) FROM reading_sessions WHERE reading_day = #{date}
+  </select>
+  <select id="countSessions" resultType="long">SELECT COUNT(*) FROM reading_sessions</select>
+  <select id="findDailySecondsSince" resultType="io.github.wanhkjd.cloudnovel.vo.DayReadingView">
+    SELECT reading_day AS "date", SUM(elapsed_seconds) AS seconds FROM reading_sessions
+    WHERE reading_day &gt;= #{date} GROUP BY reading_day ORDER BY reading_day
+  </select>
+  <select id="findBookTimes" resultType="io.github.wanhkjd.cloudnovel.vo.BookTimeView">
+    SELECT b.id AS book_id, b.title, SUM(s.elapsed_seconds) AS seconds
+    FROM reading_sessions s JOIN books b ON b.id = s.book_id
+    GROUP BY b.id, b.title ORDER BY seconds DESC, b.id
+  </select>
+</mapper>

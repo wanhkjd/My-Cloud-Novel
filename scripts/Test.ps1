@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $previousNovel = $env:NOVEL_TEST_FILE
 try {
+    & (Join-Path $PSScriptRoot 'Test-Scripts.ps1')
     if ($NovelPath) {
         $resolvedNovel = (Resolve-Path -LiteralPath $NovelPath -ErrorAction Stop).Path
         if (-not (Test-Path -LiteralPath $resolvedNovel -PathType Leaf)) { throw 'NovelPath must point to a TXT file.' }
@@ -25,6 +26,8 @@ try {
         }
         & npm.cmd run format:check
         if ($LASTEXITCODE -ne 0) { throw 'Formatting check failed. Run npm run format in frontend.' }
+        & npx.cmd --no-install prettier --check '../README.md' '../docs/*.md'
+        if ($LASTEXITCODE -ne 0) { throw 'Documentation formatting check failed.' }
         & npm.cmd test
         if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
         & npm.cmd run build
@@ -36,5 +39,9 @@ try {
     } finally { Pop-Location }
     Write-Host 'All requested verification passed.'
 } finally {
-    [Environment]::SetEnvironmentVariable('NOVEL_TEST_FILE', $previousNovel, 'Process')
+    if ($null -eq $previousNovel) {
+        Remove-Item -LiteralPath 'Env:NOVEL_TEST_FILE' -ErrorAction SilentlyContinue
+    } else {
+        [Environment]::SetEnvironmentVariable('NOVEL_TEST_FILE', $previousNovel, 'Process')
+    }
 }

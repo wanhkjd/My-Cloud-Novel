@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.wanhkjd.cloudnovel.mapper.BookmarkMapper">
+  <sql id="bookmarkProjection">
+    SELECT m.id, m.book_id, b.title AS book_title, m.chapter_index, m.paragraph_index,
+           c.title AS chapter_title, m.note, m.published, m.created_at, m.updated_at
+    FROM bookmarks m JOIN books b ON b.id = m.book_id
+    JOIN chapters c ON c.book_id = m.book_id AND c.chapter_index = m.chapter_index
+  </sql>
+  <select id="findAll" resultType="io.github.wanhkjd.cloudnovel.vo.BookmarkView">
+    <include refid="bookmarkProjection"/> ORDER BY m.updated_at DESC, m.id
+  </select>
+  <select id="findByBook" resultType="io.github.wanhkjd.cloudnovel.vo.BookmarkView">
+    <include refid="bookmarkProjection"/> WHERE m.book_id = #{bookId}
+    <if test="publishedOnly">AND m.published = TRUE</if>
+    ORDER BY m.chapter_index, m.paragraph_index
+  </select>
+  <select id="findById" resultType="io.github.wanhkjd.cloudnovel.vo.BookmarkView">
+    <include refid="bookmarkProjection"/> WHERE m.id = #{id}
+  </select>
+  <insert id="insert">
+    INSERT INTO bookmarks (id, book_id, chapter_index, paragraph_index, note, published, created_at, updated_at)
+    VALUES (#{id}, #{bookId}, #{chapterIndex}, #{paragraphIndex}, #{note}, #{published}, #{createdAt}, #{updatedAt})
+  </insert>
+  <update id="update">
+    UPDATE bookmarks SET note = #{note}, published = #{published}, updated_at = #{updatedAt} WHERE id = #{id}
+  </update>
+  <delete id="deleteById">DELETE FROM bookmarks WHERE id = #{id}</delete>
+</mapper>
