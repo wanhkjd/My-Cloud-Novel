@@ -4,7 +4,7 @@
 
 这不是公共电子书聚合平台，也不是多用户网盘。站点只有一位主人；访客免登录访问经过明确公开的内容，并在各自浏览器保留自己的阅读记录。
 
-后端采用 **Controller → Service 接口 / 实现 → MyBatis Mapper / XML** 三层架构。此次重构保留原 HTTP 路径、JSON 字段和数据库表结构，不要求清空或重新导入已有书库。
+后端采用 **Controller → Service 接口 / 实现 → MyBatis Mapper / XML** 三层架构。当前存储固定为 MySQL + Redis + 私有磁盘。HTTP 路径与 JSON 保持兼容，但数据库切换不是自动迁移：旧数据只归档保留，不能把换连接地址当作已完成历史数据迁移。
 
 ```text
 浏览器（Vue / TypeScript）
@@ -13,7 +13,8 @@
   └─ 主人 Journal → 同源 /api
                        │
                  Spring Security
-                 会话 + CSRF + ADMIN
+          Spring Session → Redis 会话 / CSRF
+                       ADMIN
                        │
      Controller：接收 DTO、身份判断、返回 VO / HTTP
                        │
@@ -24,7 +25,7 @@
           │    解码分章 / 私有原件 / 可测试时钟
           └─ Mapper 接口 + resources/mapper/*.xml
                        │
-           默认 H2 / 可选 MySQL（需单独验收）
+             MySQL（InnoDB / utf8mb4）
 ```
 
 本地 Vite 将 /api 代理到 Java 服务；生产应由反向代理提供静态前端和同源 API，而不是启用宽泛的跨域许可。
@@ -45,10 +46,10 @@ Java 包根为 `io.github.wanhkjd.cloudnovel`。
 | entity            | 与表对应的不可变 record，例如 BookEntity；不直接序列化返回给客户端                                                                               |
 | vo                | 面向客户端的响应与只读查询投影；BookView 不含文件路径、SHA-256 等内部字段                                                                        |
 | parser            | TxtNovelParser：无数据库依赖的编码识别、章节/卷识别与字数统计                                                                                    |
-| storage           | NovelFileStorage：私有 TXT 原件，UUID 路径校验、禁止覆盖、原字节读取                                                                             |
+| storage           | NovelFileStorage 接口 + LocalNovelFileStorage：私有 TXT 原字节、UUID 路径校验、禁止覆盖                                                          |
 | security          | 单管理员配置与 CurrentUser 身份工具；公开内容的业务权限仍由 Service 检查                                                                         |
 | exception         | BusinessException：表达“不存在 / 冲突”，不携带 HTTP 类型或底层错误详情                                                                           |
-| config            | Clock Bean 等基础设施配置，业务可注入固定时钟测试                                                                                                |
+| config            | Clock、Spring Session Cookie 配置等基础设施，业务可注入固定时钟测试                                                                              |
 
 SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请求 DTO。所有值使用 MyBatis 参数绑定，不能把用户输入拼接成 SQL。列表和目录查询不加载完整前言/正文，章节按需读取。构造器注入依赖，不使用字段注入的生产代码。
 
@@ -66,7 +67,7 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 ## 持久化与事务
 
 - `books`：元数据、编码、SHA-256、章/卷/字数、前言、两种公开标志。
-- `chapters`：以 (book_id, chapter_index) 唯一标识章节，保存卷名、标题和正文。
+- `chapters`：以 (book_id, chapter_index) 唯一标识章节，保存卷名、标题与 LONGTEXT 正文，一章一条记录。
 - `reading_progress`：每本书一份主人阅读位置。
 - `reading_sessions`：累计会话秒数、开始时刻、最新章节/段落和北京时间日期。
 - `bookmarks`：主人感想与段落位置；(book_id, chapter_index, paragraph_index) 唯一。
@@ -81,7 +82,15 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 
 文件系统与数据库不是分布式事务。异常关机、磁盘权限问题或提交结果不确定时仍可能产生孤立文件 / 缺失原件，需要结合备份和日志人工核对；不要自动清理未知文件。内存同步锁不支持多实例部署，也不解决多设备同时阅读造成的时间重叠。
 
-初始 SQL 使用 CREATE TABLE IF NOT EXISTS，**不负责升级已存在的表**。后续改表需要显式迁移方案。本轮没有改表；默认仍为 H2、单实例。MySQL 切换说明见 [MySQL / Redis 环境说明](mysql-redis-setup.md)，开发规范见 [后端开发规范](backend-development.md)。
+所有业务表使用 MySQL InnoDB / utf8mb4；以外键、唯一约束和 CHECK 保证基本一致性。`schema.sql` 使用 CREATE TABLE IF NOT EXISTS，**只供你手工初始化新库，不负责升级已存在的表**。应用固定 `spring.sql.init.mode=never`，运行账户只需 SELECT / INSERT / UPDATE / DELETE。没有 H2 依赖或测试回退。步骤见 [MySQL / Redis 环境说明](mysql-redis-setup.md)。
+
+## 登录会话与原件边界
+
+- Redis 使用 Spring Session 默认仓库，保存 HTTP 会话（安全上下文 / CSRF），空闲超时 12 小时。Cookie 为 `CLOUDNOVEL_SESSION`，HttpOnly、SameSite=Lax；公网 HTTPS 必须开启 Secure。登录轮换会话 ID，退出使 Redis 会话失效。
+- Redis 中不保存书籍、阅读进度、书签或时长的唯一副本。Redis 停机时会话相关请求和就绪检查可能失败，**不回退到内存会话**；会话被清除后需重新登录，MySQL 数据不会因此丢失。
+- 当前并未引入章节缓存、分布式锁或多实例阅读协调；Redis 仅解决会话外置，单实例事务同步锁仍是明确的部署边界。
+- 原始 TXT 使用 `LocalNovelFileStorage`，默认从 backend 启动时写入 `data/books/<UUID>.txt`，不丢失原编码字节，不放进前端 public / static。
+- `NovelFileStorage` 是原件读写 / 删除的适配接口。独立扩容时才新增 OSS / COS / S3 实现，并补充私有桶、权限下载、失败补偿与契约测试；当前没有任何云端桶或上传行为。
 
 ## HTTP API
 
@@ -89,7 +98,8 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 
 | 方法 / 路径                           | 说明                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
-| GET /api/health                       | 健康状态                                                             |
+| GET /api/health                       | 进程存活状态                                                         |
+| GET /api/ready                        | MySQL / Redis 就绪状态，不公开连接详情                               |
 | GET /api/auth/csrf                    | CSRF token 与 headerName                                             |
 | GET /api/auth/me                      | 当前会话是否为主人                                                   |
 | POST /api/auth/login                  | form-urlencoded 的 username / password，需 CSRF                      |

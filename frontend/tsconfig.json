@@ -16,5 +16,12 @@
     "noUnusedParameters": true,
     "types": ["vite/client", "vitest/globals", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "vite.config.ts",
+    "testing/**/*.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts"
+  ]
 }

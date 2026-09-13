@@ -8,27 +8,17 @@ import io.github.wanhkjd.cloudnovel.entity.BookmarkEntity;
 import io.github.wanhkjd.cloudnovel.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.entity.ProgressEntity;
 import io.github.wanhkjd.cloudnovel.entity.ReadingSessionEntity;
+import io.github.wanhkjd.cloudnovel.support.DatabaseIntegrationTest;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 用真实 H2 和 MyBatis XML 验证实体映射、查询投影、唯一约束及外键级联。 */
-@SpringBootTest(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:mapper-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            "spring.datasource.username=sa",
-            "spring.datasource.password=",
-            "spring.sql.init.mode=always",
-            "app.admin.username=admin",
-            "app.admin.password=only-for-isolated-tests-123",
-            "app.storage-directory=./target/mapper-test-books"
-        })
+/** 用真实 MySQL 和 MyBatis XML 验证实体映射、查询投影、唯一约束及外键级联。 */
 @Transactional
-class MapperIntegrationTest {
+class MapperIT extends DatabaseIntegrationTest {
     @Autowired BookMapper books;
     @Autowired ChapterMapper chapters;
     @Autowired ReadingMapper reading;
@@ -154,6 +144,26 @@ class MapperIntegrationTest {
         books.deleteById(book.id());
         assertThat(bookmarks.findAll()).isEmpty();
         assertThat(chapters.findSummaries(book.id())).isEmpty();
+    }
+
+    @Test
+    void usesActualMySqlInnoDbAndStoresFourByteUnicode() throws Exception {
+        try (var connection = jdbc.getDataSource().getConnection()) {
+            assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MySQL");
+        }
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()",
+                                String.class))
+                .hasSize(5)
+                .allMatch("InnoDB"::equals);
+        BookEntity book = seedBook();
+        jdbc.update(
+                "UPDATE chapters SET content = ? WHERE book_id = ? AND chapter_index = 0",
+                "正文含四字节字符：📚𠮷",
+                book.id());
+        assertThat(chapters.findByPosition(book.id(), 0).orElseThrow().content())
+                .isEqualTo("正文含四字节字符：📚𠮷");
     }
 
     private BookEntity seedBook() {

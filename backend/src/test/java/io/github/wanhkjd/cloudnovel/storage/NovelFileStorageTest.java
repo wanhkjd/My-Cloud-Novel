@@ -23,7 +23,7 @@ class NovelFileStorageTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        storage = new NovelFileStorage(directory.toString());
+        storage = new LocalNovelFileStorage(directory.toString());
     }
 
     @Test

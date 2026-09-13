@@ -1,12 +1,25 @@
 param(
     [switch]$BrowserTests,
+    [switch]$UnitOnly,
     [string]$NovelPath
 )
 $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$previousNovel = $env:NOVEL_TEST_FILE
+if ($UnitOnly -and $BrowserTests) { throw 'BrowserTests requires real MySQL/Redis and cannot be combined with UnitOnly.' }
+$testNames = @('TEST_MYSQL_HOST', 'TEST_MYSQL_PORT', 'TEST_DB_USERNAME', 'TEST_DB_PASSWORD', 'E2E_DB_USERNAME', 'E2E_DB_PASSWORD', 'TEST_REDIS_HOST', 'TEST_REDIS_PORT', 'TEST_REDIS_USERNAME', 'TEST_REDIS_PASSWORD', 'NOVEL_TEST_FILE')
+$before = @{}
+foreach ($name in $testNames) { $before[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 try {
     & (Join-Path $PSScriptRoot 'Test-Scripts.ps1')
+    if (-not $UnitOnly) {
+        $testFile = Join-Path $root '.env.test'
+        if (Test-Path -LiteralPath $testFile) {
+            & (Join-Path $PSScriptRoot 'Import-LocalConfig.ps1') -Path $testFile -Mode Test
+        }
+        if ([string]::IsNullOrWhiteSpace($env:TEST_DB_PASSWORD)) {
+            throw 'Prepare the dedicated MySQL test schema/account and .env.test first. See docs/mysql-redis-setup.md. UnitOnly is explicit and is not full verification.'
+        }
+    }
     if ($NovelPath) {
         $resolvedNovel = (Resolve-Path -LiteralPath $NovelPath -ErrorAction Stop).Path
         if (-not (Test-Path -LiteralPath $resolvedNovel -PathType Leaf)) { throw 'NovelPath must point to a TXT file.' }
@@ -14,7 +27,9 @@ try {
     }
     Push-Location (Join-Path $root 'backend')
     try {
-        & mvn.cmd -B -ntp verify
+        $arguments = @('-B', '-ntp', 'verify')
+        if ($UnitOnly) { $arguments += '-DskipITs' }
+        & mvn.cmd @arguments
         if ($LASTEXITCODE -ne 0) { throw 'Backend verification failed.' }
     } finally { Pop-Location }
 
@@ -26,7 +41,7 @@ try {
         }
         & npm.cmd run format:check
         if ($LASTEXITCODE -ne 0) { throw 'Formatting check failed. Run npm run format in frontend.' }
-        & npx.cmd --no-install prettier --check '../README.md' '../docs/*.md'
+        & npx.cmd --no-install prettier --check '../README.md' '../docs/*.md' '../.github/workflows/ci.yml' '../deploy/compose.redis.yml'
         if ($LASTEXITCODE -ne 0) { throw 'Documentation formatting check failed.' }
         & npm.cmd test
         if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
@@ -37,11 +52,14 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Browser tests failed. If needed, install Chromium with npx playwright install chromium.' }
         }
     } finally { Pop-Location }
-    Write-Host 'All requested verification passed.'
+    if ($UnitOnly) { Write-Host 'Unit/static/build verification passed. Real MySQL/Redis integration and browser tests were NOT run.' }
+    else { Write-Host 'All requested MySQL/Redis verification passed.' }
 } finally {
-    if ($null -eq $previousNovel) {
-        Remove-Item -LiteralPath 'Env:NOVEL_TEST_FILE' -ErrorAction SilentlyContinue
-    } else {
-        [Environment]::SetEnvironmentVariable('NOVEL_TEST_FILE', $previousNovel, 'Process')
+    foreach ($name in $testNames) {
+        if ($null -eq $before[$name]) {
+            Remove-Item -LiteralPath ("Env:" + $name) -ErrorAction SilentlyContinue
+        } else {
+            [Environment]::SetEnvironmentVariable($name, $before[$name], 'Process')
+        }
     }
 }

@@ -10,7 +10,8 @@ import io.github.wanhkjd.cloudnovel.mapper.BookMapper;
 import io.github.wanhkjd.cloudnovel.mapper.ChapterMapper;
 import io.github.wanhkjd.cloudnovel.parser.TxtNovelParser;
 import io.github.wanhkjd.cloudnovel.service.impl.LibraryServiceImpl;
-import io.github.wanhkjd.cloudnovel.storage.NovelFileStorage;
+import io.github.wanhkjd.cloudnovel.storage.LocalNovelFileStorage;
+import io.github.wanhkjd.cloudnovel.support.DatabaseIntegrationTest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,21 +22,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** 验证真实 MyBatis 事务中第二批章节失败时，首批章节、书目和新原件共同撤销。 */
-@SpringBootTest(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:import-rollback-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            "spring.datasource.username=sa",
-            "spring.datasource.password=",
-            "spring.sql.init.mode=always",
-            "app.admin.username=admin",
-            "app.admin.password=only-for-isolated-tests-123",
-            "app.storage-directory=./target/import-rollback-test-books"
-        })
-class LibraryTransactionTest {
+class LibraryTransactionIT extends DatabaseIntegrationTest {
     @Autowired BookMapper books;
     @Autowired ChapterMapper chapters;
     @Autowired TransactionTemplate transactions;
@@ -63,7 +53,7 @@ class LibraryTransactionTest {
                         books,
                         failingChapters,
                         new TxtNovelParser(),
-                        new NovelFileStorage(directory.toString()),
+                        new LocalNovelFileStorage(directory.toString()),
                         transactions,
                         Clock.systemUTC());
         StringBuilder text = new StringBuilder();

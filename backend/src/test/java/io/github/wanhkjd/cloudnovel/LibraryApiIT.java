@@ -5,28 +5,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.wanhkjd.cloudnovel.support.DatabaseIntegrationTest;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(
-        properties = {
-            "spring.datasource.url=jdbc:h2:mem:library-test;MODE=MySQL;DB_CLOSE_DELAY=-1",
-            "spring.datasource.username=sa",
-            "spring.datasource.password=",
-            "spring.sql.init.mode=always",
-            "app.admin.username=admin",
-            "app.admin.password=only-for-isolated-tests-123",
-            "app.storage-directory=./target/test-books"
-        })
 @AutoConfigureMockMvc
-class LibraryApiTest {
+class LibraryApiIT extends DatabaseIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
 
@@ -104,46 +94,6 @@ class LibraryApiTest {
                         header().string(
                                         "Content-Type",
                                         org.hamcrest.Matchers.startsWith("text/plain")));
-    }
-
-    @Test
-    void realLoginUsesSessionAndCsrfAndLogoutRemovesAccess() throws Exception {
-        mvc.perform(get("/api/me/progress")).andExpect(status().isUnauthorized());
-        mvc.perform(
-                        post("/api/auth/login")
-                                .param("username", "admin")
-                                .param("password", "only-for-isolated-tests-123"))
-                .andExpect(status().isForbidden());
-        var csrfResponse =
-                mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
-        var session =
-                (org.springframework.mock.web.MockHttpSession)
-                        csrfResponse.getRequest().getSession(false);
-        var token = json.readTree(csrfResponse.getResponse().getContentAsString());
-        var login =
-                mvc.perform(
-                                post("/api/auth/login")
-                                        .session(session)
-                                        .header(
-                                                token.path("headerName").asText(),
-                                                token.path("token").asText())
-                                        .param("username", "admin")
-                                        .param("password", "only-for-isolated-tests-123"))
-                        .andExpect(status().isOk())
-                        .andReturn();
-        session =
-                (org.springframework.mock.web.MockHttpSession) login.getRequest().getSession(false);
-        mvc.perform(get("/api/auth/me").session(session))
-                .andExpect(jsonPath("$.authenticated").value(true));
-        mvc.perform(post("/api/auth/logout").session(session).with(csrf()))
-                .andExpect(status().isNoContent());
-        mvc.perform(get("/api/auth/me")).andExpect(jsonPath("$.authenticated").value(false));
-        mvc.perform(
-                        post("/api/auth/login")
-                                .with(csrf())
-                                .param("username", "admin")
-                                .param("password", "incorrect"))
-                .andExpect(status().isUnauthorized());
     }
 
     @Test

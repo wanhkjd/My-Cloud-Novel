@@ -12,22 +12,26 @@ foreach ($port in @(8080, 5173)) {
     if ($listener) { throw "Port $port is already in use. Stop the existing service first; no process was changed." }
 }
 if (-not (Test-Path -LiteralPath $envFile)) {
-    $bytes = New-Object byte[] 24
-    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try { $random.GetBytes($bytes) } finally { $random.Dispose() }
-    $password = [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
-    [System.IO.File]::WriteAllText($envFile, "ADMIN_USERNAME=admin" + [Environment]::NewLine + "ADMIN_PASSWORD=$password" + [Environment]::NewLine + "COOKIE_SECURE=false" + [Environment]::NewLine)
+    throw 'Prepare MySQL / Redis first: see docs/mysql-redis-setup.md. There is no embedded database fallback.'
 }
 & (Join-Path $PSScriptRoot 'Import-LocalConfig.ps1') -Path $envFile
 if ([string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD) -or $env:ADMIN_PASSWORD.Length -lt 12) {
     throw "Set ADMIN_PASSWORD to at least 12 characters in $envFile."
 }
+foreach ($name in @('DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'REDIS_PASSWORD')) {
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, 'Process'))) {
+        throw "Missing $name. Follow docs/mysql-redis-setup.md; no service was started."
+    }
+}
+if (-not $env:DB_URL.StartsWith('jdbc:mysql://')) { throw 'DB_URL must use MySQL. Embedded databases are not supported.' }
+if ($env:DB_USERNAME -eq 'root') { throw 'Use the dedicated cloud_novel_app account, not root, for the running application.' }
 $env:SERVER_ADDRESS = '127.0.0.1'
 $env:SERVER_PORT = '8080'
 $env:API_PROXY_TARGET = 'http://127.0.0.1:8080'
 if (-not $SkipBuild) {
     Push-Location $backend
-    try { & mvn.cmd -q -ntp verify; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
+    # Startup runs unit checks and packaging. Full isolated MySQL/Redis verification is scripts/Test.ps1.
+    try { & mvn.cmd -q -ntp verify -DskipITs; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
     Push-Location $frontend
     try {
         if (-not (Test-Path -LiteralPath (Join-Path $frontend 'node_modules'))) { & npm.cmd ci; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' } }
@@ -51,9 +55,10 @@ try {
     $ready = $false
     for ($i = 0; $i -lt 45; $i++) {
         try {
-            $health = Invoke-RestMethod 'http://127.0.0.1:8080/api/health' -TimeoutSec 2
+            $health = Invoke-RestMethod 'http://127.0.0.1:8080/api/ready' -TimeoutSec 5
+            $catalog = Invoke-WebRequest 'http://127.0.0.1:8080/api/books' -UseBasicParsing -TimeoutSec 5
             $page = Invoke-WebRequest 'http://127.0.0.1:5173' -UseBasicParsing -TimeoutSec 2
-            if ($health.status -eq 'ok' -and $page.StatusCode -eq 200) { $ready = $true; break }
+            if ($health.status -eq 'UP' -and $catalog.StatusCode -eq 200 -and $page.StatusCode -eq 200) { $ready = $true; break }
         } catch { Start-Sleep -Seconds 1 }
     }
     if (-not $ready) { throw "Startup failed. See logs in $logs" }

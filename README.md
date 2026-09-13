@@ -31,31 +31,33 @@
 
 - 后端：Java 21、Spring Boot 3.5、Spring Security、**MyBatis（Controller / Service / Mapper 三层）**、Bean Validation、Maven。
 - 前端：Vue 3、TypeScript、Vue Router、Vite、Lucide 图标、原生 CSS。
-- 默认数据库：**文件型 H2**；原始 TXT 存在后端私有目录，章节与元数据存在数据库。
+- 持久化：**MySQL 8.0.16+ / 8.4（InnoDB、utf8mb4）** 保存业务数据；原始 TXT 保存在服务器私有目录。
+- Redis 7.4 + Spring Session：保存管理员 HTTP 会话 / CSRF，12 小时空闲过期；不作为书籍、进度或感想的唯一存储。
 - 测试与规范：JUnit / MockMvc、ArchUnit 分层检查、Spotless 格式检查、严格 JavaDoc 校验；Vitest / Vue Test Utils、Playwright Chromium + axe 无障碍检查。
 
-仓库包含 MySQL JDBC 驱动；**MySQL 尚未验收，不应直接当作已支持的生产数据库**。无需安装 Redis。需要自行配置 MySQL 时，按 [MySQL / Redis 环境说明](docs/mysql-redis-setup.md) 操作，切换前备份，既有 H2 阅读数据不会自动迁移。
+**运行和集成测试都必须使用真实 MySQL + Redis；已移除 H2 依赖和配置，没有嵌入式回退。** 建库 / 建表 / 授权由你手工执行，应用不会自动初始化数据库。首次配置请先按 [MySQL / Redis 操作步骤](docs/mysql-redis-setup.md) 完成环境准备。旧数据库只保留归档，切换配置不会自动迁移历史数据。
 
 后端各层职责与接口见 [架构说明](docs/architecture.md)，编码、中文注释和新增功能流程见 [后端开发规范](docs/backend-development.md)。
 
 ## 本机启动（Windows）
 
-准备好 PATH 中的 **JDK 21、Maven 3.9+、Node.js 24 LTS 和 npm**。
+准备好 PATH 中的 **JDK 21、Maven 3.9+、Node.js 24 LTS 和 npm**，并完成 [MySQL / Redis 初始化](docs/mysql-redis-setup.md)，把私有运行配置保存到根目录 `.env`。
 
 ```powershell
 cd D:\javaweb\workspace\MyCloudNovel
 .\scripts\Start-Local.ps1
 ```
 
-启动脚本会执行后端格式/分层/测试/JavaDoc 校验并打包、安装缺失的前端依赖、前端测试与构建，然后隐藏启动本地进程：
+启动脚本执行后端单元测试、格式/分层/JavaDoc 和打包（明确跳过专用库集成测试）、前端测试与构建，再隐藏启动本地进程。完整验收使用 `scripts/Test.ps1`。MySQL、Redis 和书目接口都就绪后才提示启动成功：
 
 - 前端：[http://127.0.0.1:5173](http://127.0.0.1:5173)
-- 后端健康检查：[http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health)
+- 依赖就绪检查：[http://127.0.0.1:8080/api/ready](http://127.0.0.1:8080/api/ready)（MySQL + Redis，无连接详情）
+- 进程存活检查：[http://127.0.0.1:8080/api/health](http://127.0.0.1:8080/api/health)
 - 管理入口：[http://127.0.0.1:5173/admin](http://127.0.0.1:5173/admin)
 
 ### 管理员账号
 
-首次启动且根目录没有 `.env` 时，脚本生成随机强密码并保存到这个被 Git 忽略的文件中。用户名默认 **admin**；密码请在你本机的 `.env` 查看，脚本不会把它打印到控制台。
+`Prepare-LocalEnvironment.ps1` 只生成待审核的私有配置，不会改库或覆盖现有 `.env`。它保留有效的现有管理员身份；没有时生成随机强密码，用户名默认 **admin**。启动脚本不再自动生成环境或使用默认数据库。密码只在本机配置中查看，不会打印到控制台。
 
 也可以参考 `.env.example` 自行配置，但实际密码至少 12 个字符，不能保留示例中的空值。不要将真实配置、密码或会话 Cookie 提交到 Git。
 
@@ -72,7 +74,8 @@ cd D:\javaweb\workspace\MyCloudNovel
 开发时也可在两个终端分别运行后端和前端：
 
 ```powershell
-# 终端 A：先通过你信任的方式设置 ADMIN_USERNAME / ADMIN_PASSWORD 环境变量
+# 终端 A：在项目根目录加载完整的 MySQL / Redis / 管理员配置
+.\scripts\Import-LocalConfig.ps1 -Path .\.env
 cd backend
 mvn spring-boot:run
 
@@ -82,7 +85,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-注意：**只有启动脚本会读取根目录 .env**；直接运行 Java 或 Maven 时，Spring Boot 从系统/进程环境变量读取配置。
+注意：**Java / Maven 本身不读取根目录 `.env`**；启动脚本会调用安全的配置加载器。直接启动时需先加载配置或设置环境变量，不能遗漏 MySQL / Redis 凭据。
 
 ## 如何开始使用
 
@@ -95,7 +98,7 @@ npm.cmd run dev
 ## 验证与测试
 
 ```powershell
-# 后端格式/分层/单元/API/JavaDoc、脚本、前端测试/类型/构建和文档格式检查
+# 先准备独立测试库和 .env.test；此命令运行真实 MySQL / Redis 集成测试
 .\scripts\Test.ps1
 
 # 首次运行浏览器测试前安装 Chromium
@@ -108,24 +111,29 @@ cd ..
 
 # 可选：只在本机提供真实小说，文件不会被复制到仓库或推送
 .\scripts\Test.ps1 -BrowserTests -NovelPath '.\《人道至尊》.txt'
+
+# 尚未准备数据库时，仅检查单元测试、格式、JavaDoc、类型和打包
+# 明确不等于完整验收，不会使用替代数据库
+.\scripts\Test.ps1 -UnitOnly -NovelPath '.\《人道至尊》.txt'
 ```
 
-浏览器测试使用独立的 **18080 / 15173** 端口、内存 H2 和原创测试文本，不读取本地密码、不碰 8080 的个人书库。普通测试不需要任何真实小说。
+测试只读取 `.env.test` / `TEST_*` / `E2E_*`，不读取真实 `.env`。后端集成测试固定使用 `cloud_novel_test`，浏览器固定使用 `cloud_novel_e2e` 与 **18080 / 15173** 端口；两个账户仅能读写各自专用库。Redis 分别使用 DB 15 / 14 与随机命名空间，禁止清空整个 Redis。普通测试只用原创文本，不需要真实小说。
 
 详细命令、验收范围和局限见 [测试说明](docs/testing.md)。GitHub Actions 会在推送和 PR 时执行自动检查；以 Actions 实际结果为准。
 
 ## 数据保存与备份
 
-默认从 `backend` 目录启动后：
+| 内容                                | 当前存储                                                         |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| 原始 TXT                            | `backend/data/books/<UUID>.txt`（`BOOK_STORAGE` 可指定私有目录） |
+| 章节正文、目录                      | MySQL `chapters`，一章一条记录，正文 `LONGTEXT`                  |
+| 书名、作者、简介、权限              | MySQL `books`                                                    |
+| 主人阅读进度、书签 / 笔记、阅读时长 | MySQL `reading_progress` / `bookmarks` / `reading_sessions`      |
+| 管理员登录会话 / CSRF               | Redis，失效不删除 MySQL 业务数据                                 |
 
-```text
-backend/data/
-├── library.mv.db       # 书籍/章节/阅读记录/书签
-├── books/<UUID>.txt    # 私有原件，文件名不使用上传路径
-└── local-*.log         # 本地运行日志
-```
+需要独立扩容时，可实现 `NovelFileStorage` 接口接入 OSS / COS / S3；**当前只实现私有磁盘，不包含云存储配置**。任何原件读取都经后端权限检查，不把磁盘目录挂成静态资源。
 
-**先停止服务，再把整个 backend/data 备份到安全位置**，数据库与原件必须一起保留。仅备份 TXT 不会保存阅读历史/感想；仅备份数据库无法恢复原始下载。另请妥善保管本机配置，不要上传公开仓库。若配置了自定义 DB_URL 或 BOOK_STORAGE，也要一并备份其实际目标。
+**停写后同时备份 MySQL 和私有原件目录**，并妥善保管配置。仅备份 TXT 不含阅读历史 / 感想；仅备份 MySQL 不能恢复原始下载。Redis AOF 主要保护会话，不替代业务数据备份。具体导出和核对方法见 [环境操作说明](docs/mysql-redis-setup.md)。
 
 根目录 TXT、数据目录、运行日志、截图与测试产物、.env、node_modules 和构建产物均被 Git 忽略。删除书籍会删除相关章节、阅读记录、书签和私有原件，请先备份。
 
@@ -135,7 +143,7 @@ backend/data/
 - 断网、强制关闭浏览器或未完成的页面退出请求，仍可能丢失最后一小段记录；没有跨重启的离线同步队列。多设备同时阅读也不做冲突合并或计时去重。
 - 会话按开始时刻的北京时间日期统计，每段最多 30 分钟；跨午夜的片段归属开始那一天。界面显示近 200 段历史，但总时长计算全部已保存的片段。
 - TXT 章节标题需独占一行，且“章/回/节/卷”等单位后有空白/分隔符或行尾；特殊排版请先调整。无识别章节的文本会作为一章“正文”，空白文件、明显二进制文件和超过 10,000 章的文件拒绝导入。
-- 未实现生产登录限流、自动备份、多实例协调或数据库版本迁移机制。当前使用单进程、初始化建表 SQL。
+- 未实现生产登录限流、自动备份、多实例协调或数据库版本迁移机制。当前使用单进程、手工新库建表 SQL；Redis 共享登录会话不等于业务已支持多实例。
 - 公网部署需用 HTTPS、设置 COOKIE_SECURE=true、配置同源反向代理与登录限流、保护数据目录并配置备份。**Vite 开发服务不能当生产服务器暴露到公网**；不要开放数据库控制台或原件目录。
 - 生产前请进一步做安全审查、真实移动设备兼容性检查和容量测试；数据库字段变更需先备份再设计迁移。
 

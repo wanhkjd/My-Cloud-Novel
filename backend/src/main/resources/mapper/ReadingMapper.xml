@@ -57,7 +57,7 @@
   </select>
   <select id="countSessions" resultType="long">SELECT COUNT(*) FROM reading_sessions</select>
   <select id="findDailySecondsSince" resultType="io.github.wanhkjd.cloudnovel.vo.DayReadingView">
-    SELECT reading_day AS "date", SUM(elapsed_seconds) AS seconds FROM reading_sessions
+    SELECT reading_day AS `date`, SUM(elapsed_seconds) AS seconds FROM reading_sessions
     WHERE reading_day &gt;= #{date} GROUP BY reading_day ORDER BY reading_day
   </select>
   <select id="findBookTimes" resultType="io.github.wanhkjd.cloudnovel.vo.BookTimeView">

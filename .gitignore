@@ -7,6 +7,7 @@
 .env
 .env.*
 !.env.example
+!.env.test.example
 **/target/
 **/node_modules/
 **/dist/
@@ -21,3 +22,6 @@
 
 /.local-dev.json
 *.tsbuildinfo
+
+# Generated credentials, provisioning SQL and local Redis configuration
+/.local/

@@ -1,6 +1,7 @@
 package io.github.wanhkjd.cloudnovel.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.wanhkjd.cloudnovel.config.SessionConfig;
 import io.github.wanhkjd.cloudnovel.vo.AuthView;
 import io.github.wanhkjd.cloudnovel.vo.ErrorView;
 import jakarta.servlet.http.HttpServletResponse;
@@ -107,7 +108,7 @@ public class SecurityConfig {
                 .logout(
                         logout ->
                                 logout.logoutUrl("/api/auth/logout")
-                                        .deleteCookies("JSESSIONID")
+                                        .deleteCookies(SessionConfig.COOKIE_NAME, "JSESSIONID")
                                         .logoutSuccessHandler(
                                                 (request, response, authentication) ->
                                                         response.setStatus(204)))

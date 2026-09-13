@@ -1,29 +1,59 @@
 # 测试与验收
 
-## 一键验证（Windows）
+## 完整验证：只使用真实 MySQL / Redis
 
-在项目根目录运行：
+先按 [环境步骤](mysql-redis-setup.md) 准备两个**专用空库**、最小权限账户和根目录 `.env.test`，再运行：
 
 ```powershell
+cd D:\javaweb\workspace\MyCloudNovel
 .\scripts\Test.ps1
 .\scripts\Test.ps1 -BrowserTests
 .\scripts\Test.ps1 -BrowserTests -NovelPath '.\《人道至尊》.txt'
 ```
 
-浏览器首次安装：在 frontend 执行 `npx.cmd playwright install chromium`。Linux CI 使用 `npx playwright install --with-deps chromium`。
+浏览器首次安装：在 frontend 执行 `npx.cmd playwright install chromium`；Linux CI 使用 `npx playwright install --with-deps chromium`。端到端测试使用已打包的后端 JAR，因此修改 Java 后不能只运行旧 JAR 的浏览器测试。
 
-测试脚本不会读取 .env、不自动公开任何书籍。指定真实小说只启用解析器验收，不会把小说上传到 GitHub，也不在测试报告里打印其正文。
+测试脚本只加载 `.env.test` 的 `TEST_*` / `E2E_*` 白名单，**不读取运行用 `.env`**。真实小说只进入只读解析器验收，不会自动导入数据库、上传 GitHub 或在报告中打印正文。普通测试全部使用原创合成文本。
+
+### 尚未准备基础设施时
+
+```powershell
+.\scripts\Test.ps1 -UnitOnly
+.\scripts\Test.ps1 -UnitOnly -NovelPath '.\《人道至尊》.txt'
+```
+
+这是显式的部分验证：单元测试、脚本、格式、ArchUnit、JavaDoc、前端类型检查与构建。**不运行真实数据库 / Redis 集成或浏览器流程，不等于完整验收**；禁止与 `-BrowserTests` 组合。没有 H2 / 其他嵌入式替代；完整模式缺少专用凭据或服务时必须失败，而不是静默跳过。
+
+## 测试隔离约定
+
+| 范围       | MySQL schema / 账户                 | Redis                            | 原件目录                 |
+| ---------- | ----------------------------------- | -------------------------------- | ------------------------ |
+| 网站运行   | cloud_novel / cloud_novel_app       | DB 0，cloud-novel:session        | BOOK_STORAGE 私有目录    |
+| 后端集成   | cloud_novel_test / cloud_novel_test | DB 15，本次 cloud-novel:it:UUID  | JVM 新建的临时目录       |
+| 浏览器流程 | cloud_novel_e2e / cloud_novel_e2e   | DB 14，本次 cloud-novel:e2e:UUID | backend/target/e2e-books |
+
+- 浏览器测试若检测到 JVM 启动参数、Spring JSON / 外部配置、JNDI 或 Redis URL / 集群覆盖，会在启动前拒绝。请清除这些继承配置后再运行，不能让高优先级配置绕过隔离连接。
+- 测试固定 schema 与账户名，拒绝 root / 业务账户；不得把正式数据放进这两个测试库。两个测试账户各自仅有本库的 DML 权限。
+- `IntegrationSettings` 在创建连接池前覆盖运行配置；`e2eEnvironment` 明确覆盖数据库、Redis、管理员和原件路径，测试目标不能从真实 DB_URL 派生。
+- 本地和 CI 的表结构由 DBA / 初始化步骤显式导入 `schema.sql`。所有运行 / 测试都使用 `spring.sql.init.mode=never`，不授予测试账户 CREATE / DROP。
+- 后端清理前核对 `SELECT DATABASE()`，只删除专用库内合成书目及其外键关联记录；不会连接 / 清空真实业务库。
+- 后端只用 SCAN / DELETE 清理**当前随机 Redis 前缀**。浏览器会话有 TTL；不使用 FLUSHDB / FLUSHALL，也不删除其他项目的会话。
+- E2E 使用独立端口 **18080 / 15173**，不复用 8080 / 5173 的个人书库。每个用例开始前清理隔离书库，禁止多个测试进程并发共用同一个 schema。
+- 测试连接参数面向本机或隔离 CI，不能把关闭 TLS 的测试配置用于公网 MySQL / Redis。
 
 ## 分别运行
 
 ```powershell
+# 项目根目录：仅导入测试白名单，不导入业务配置
+.\scripts\Import-LocalConfig.ps1 -Path .\.env.test -Mode Test
+
 cd backend
 mvn -B -ntp verify
 
-# 可选：为本地解析器验收提供只读文件
-$env:NOVEL_TEST_FILE = 'D:\javaweb\workspace\MyCloudNovel\《人道至尊》.txt'
-mvn -q -ntp test
-Remove-Item Env:NOVEL_TEST_FILE
+# *Test 由 Surefire 跑单元测试，*IT 由 Failsafe 在 verify 跑真实集成
+# 排查时的部分检查，不能替代完整 verify
+mvn -B -ntp -Dtest=ReadingServiceTest test
+mvn -B -ntp verify -DskipITs
 
 cd ..\frontend
 npm.cmd ci
@@ -34,71 +64,50 @@ npm.cmd run test:e2e
 npm.cmd audit --registry=https://registry.npmjs.org --audit-level=moderate
 ```
 
-端到端测试启动已打包的 backend/target/cloud-novel-0.1.0.jar，因此修改 Java 后要先运行 Maven package/verify。CI 不提供任何真实小说；LocalNovelTest 缺少环境变量时会跳过，其余测试必须通过。
+`LocalNovelTest` 只针对用户提供的《人道至尊》版本，不是任意 TXT 的通用断言。CI 没有真实小说，该用例缺少 `NOVEL_TEST_FILE` 时允许跳过，其他单元 / 集成测试不得因此跳过。
 
 ## 自动覆盖
 
-### 后端
+### 后端单元、架构与存储
 
-- ArchitectureTest：Controller 不越过 Service 访问 Mapper/存储；Service 不依赖 Web/JDBC；Mapper 不依赖上层；接口、实现类与注解位置。
-- MapperIntegrationTest：真实 MyBatis XML / H2，实体和投影映射、列表不加载正文、唯一约束、条件累计更新、聚合与外键级联。
-- LibraryServiceTest：书目/正文隔离、200 章批次、默认私有、参数边界、提交失败后的文件补偿、先提交后删文件。
-- LibraryTransactionTest：真实数据库事务中先成功写入 200 章，再模拟第二批失败，核对书目、首批章节和新原件均撤销。
-- ReadingServiceTest：固定 Clock，进度保存、UUID 冲突、累计乱序、时长上下限、七天窗口/五秒容差、北京时间跨午夜、14 天补零。
-- BookmarkServiceTest：正文权限优先、主人/访客过滤、感想规范化/长度、同位置冲突、编辑与不存在处理。
-- NovelFileStorageTest：临时目录原字节读写、禁止覆盖、非法 UUID/路径穿越、重复删除、缺失原件。
-- Spotless + JavaDoc：统一 Java 格式；doclint=all、failOnWarnings 校验公开 API 文档。
-- TxtNovelParserTest：UTF-8/BOM、GB18030、章节/分卷、标题边界、无章节退化、空白/二进制/超限校验。
-- LocalNovelTest：环境变量显式提供本地小说；核对 GB18030、1,507 章、3 卷、连续索引和首末章，原件哈希不变。**此用例针对用户提供的《人道至尊》测试版本，不是任意 TXT 的通用断言**。
-- LibraryApiTest：真实上传/下载/编辑/删除、重复文件、错误格式、书目/正文/前言/目录隔离、公开感想、真正表单登录/CSRF/会话/退出、主人历史/统计、非法位置、累计秒数幂等与乱序、清理关联数据。
+- ArchitectureTest：Controller 不越过 Service 访问 Mapper / 原件；Service 不依赖 HTTP / JDBC；Mapper 类型、注解和接口 / 实现位置。
+- LibraryServiceTest：默认私有、书目 / 正文权限隔离、参数边界、200 章批次、事务提交失败的文件补偿、数据库提交后再删原件。
+- ReadingServiceTest：固定 Clock，进度、UUID 冲突、累计乱序 / 幂等、时间上下限、七天窗口 / 五秒容差、北京时间跨午夜、14 天补零。
+- BookmarkServiceTest：权限优先、主人 / 访客过滤、感想规范化 / 长度、同位置冲突、编辑和不存在处理。
+- NovelFileStorageTest：LocalNovelFileStorage 在临时目录内的原字节读写、禁止覆盖、UUID / 路径校验、缺失原件、重复删除和符号链接防护。
+- TxtNovelParserTest：UTF-8 / BOM、GB18030、章节 / 卷识别、标题边界、无章节退化、空白 / 二进制 / 超限校验。
+- IntegrationSettingsTest：不继承正式连接 / 原件目录，拒绝 root、缺凭据、连接参数注入和共享 Redis 前缀。
+- LocalNovelTest：可选只读解析，核对编码、1,507 章 / 3 卷、连续索引与原件哈希不变。
+- Spotless + JavaDoc：生产 / 测试统一格式，公开 API 的中文 JavaDoc 通过 doclint=all / failOnWarnings。
 
-### 本地脚本与说明文档
+### 真 MySQL / Redis 集成
 
-- Test-Scripts.ps1：只使用合成 .env，验证 PowerShell AST、配置白名单、DB_INIT_MODE、JDBC URL 的 &、密码中的 =、空格路径、注释忽略和启动 verify 约定；自动恢复进程环境变量，不读真实 .env 或启动服务。
-- Prettier：检查根 README 与 docs 下的 Markdown，和前端检查一起在 Test.ps1 / CI 执行。
+- MapperIT：验证服务端产品确为 MySQL、表引擎为 InnoDB、四字节 Unicode；运行真实 MyBatis XML，检查实体 / 投影映射、唯一约束、聚合、条件累计更新和外键级联。
+- LibraryTransactionIT：真实 MySQL 事务中先写入 200 章，再模拟第二批失败，确认书目 / 已写章节回滚、新原件补偿删除。
+- LibraryApiIT：MockMvc 配合真实 MySQL / Redis，覆盖上传 / 下载 / 删除、重复文件、错误格式、公开范围、前言泄露、感想、进度 / 历史 / 统计、非法位置及幂等。
+- RedisSessionIT：真实随机端口 HTTP 与 Cookie，不使用 MockHttpSession 替代 Redis。检查 CSRF、错误登录、会话 ID 轮换、HttpOnly / SameSite / Path、12 小时 TTL、退出、独立客户端共享会话、删除或过期 Redis 会话立即撤销认证，且 MySQL 书籍 / 章节 / 原件仍存在；检查就绪状态不泄露连接详情。
 
-### 前端
+### PowerShell / 前端 / 浏览器
 
-- ReadingClock：正常计时、隐藏/暂停、长睡眠与空闲截止。
-- Journal：访客浏览器数据持久化、管理员请求路由、网络失败不污染访客记录。
-- ShelfView：空书架不会伪造书籍或统计；书架搜索由浏览器测试覆盖。
-- vue-tsc + Vite：TypeScript 和生产打包；Prettier 检查格式。
+- Test-Scripts.ps1：不依赖 Pester，不启动服务，不读取真实配置。验证全部脚本 AST、运行 / 测试白名单、JDBC 的 &、密码中的 =、空格路径、字面量不执行、环境恢复；用临时项目验证生成独立凭据、只保留管理员身份、不覆盖文件、最小 SQL 权限和已有 Redis 密码输入。
+- Prettier 检查 README、docs、前端、CI 和 Compose 格式；vue-tsc / Vite 检查类型与生产构建。
+- Vitest：阅读时钟、访客本地数据 / 管理员请求隔离、真实空状态、E2E 配置不接入正式库和随机 Redis 前缀。
+- Playwright Chromium 三个流程：主人登录 / 上传 / 私有预览 / 书签 / 切章 / 恢复 / 公开 / 统计 / 删除；390 × 844 手机访客的搜索 / 夜间模式 / 本地书签 / 刷新恢复与权限拒绝；公开空书架及主要页面 / 弹窗的 axe WCAG A/AA 检查。
+- 原创 E2E 文本带 HTML 注入探针，确认作为文本显示；主要流程监控 pageerror。axe 无违规不等于完整无障碍认证，仍需真人键盘 / 屏幕阅读器测试。
 
-### 浏览器端到端
+## GitHub CI
 
-使用独立后端 **18080**（内存 H2、原件在 backend/target/e2e-books）与独立前端 **15173**。端口已占用会失败，不复用已有服务。测试专用密码只用于隔离环境，绝不能拿来部署真实站点。每个用例开始前清理该隔离书库，避免失败残留污染下一用例。
+`.github/workflows/ci.yml` 在 push / PR 时启动可丢弃的 **MySQL 8.4、Redis 7.4** 服务。只使用明确标注的 CI 合成凭据，绝不连接本机数据库。root 仅在初始化步骤建专用库 / 表和最小权限用户；Maven / 应用 / 浏览器阶段只拿对应 DML 账户。
 
-1. 主人真实 UI 登录、上传原创 TXT、私有预览、段落书签、切章、恢复位置、仅公开书目、再公开正文、单独公开感想、核对服务器统计和删除。
-2. 390 × 844 手机访客搜索、阅读、夜间模式、本地书签、继续阅读、刷新恢复设置、无水平溢出、访问主人接口被拒绝且主人记录未混入访客数据。
-3. 公开空书架的 axe WCAG A/AA 检查；其他流程还检查登录、管理、详情、阅读器日/夜模式、书签弹窗和阅读足迹。
+CI 执行脚本测试、`mvn verify`（不能带 skipITs）、前端依赖审计、格式 / 类型 / 单测 / 打包、完整 Playwright 流程。后端和浏览器报告作为 7 天保留的构建产物。通过状态以 [对应提交的 Actions](https://github.com/wanhkjd/My-Cloud-Novel/actions) 为准，不能把本机 UnitOnly 通过当作 CI 或完整验收通过。
 
-原创测试文本含 HTML 注入探针，确认以文本显示、没有执行脚本；主要浏览器流程监听 pageerror。axe 无违规不等于完整无障碍认证，还需键盘/屏幕阅读器和真人检查。
+## 本机记录与明确限制
 
-## MVP 首次本机验收记录
+2026-09-13 切换过程中：
 
-在 2026-09-12 至 2026-09-13 本机开发环境中执行：
+- 已完成无基础设施的后端单元 / 架构 / 存储检查与《人道至尊》只读解析，原件为 **10,244,779 字节 / GB18030 / 1,507 章 / 3 卷 / 4,844,982 非空白正文码点**；未向新库导入小说。
+- MySQL 8.0.43 仅做 root 只读连接 / 版本 / schema 查询；项目和专用测试库未创建，没有执行建库 / 授权或业务写入。
+- 后续检测到 Redis 3.2.100 在本机运行，但未启用服务端密码；未擅自执行 CONFIG SET 或修改服务配置。真实本机集成、重启持久化和 Compose 启动仍需用户配置后验证。
+- 旧版本的本机 MVP / 三层重构验收记录可从 Git 历史查看；那是旧存储版本的验证，**不能代替本轮真实 MySQL / Redis 验收**。旧数据库仅归档，网站已停机，阅读历史未自动迁移。
 
-- 后端 **12 项**、前端 **6 项**、浏览器 **3 个完整流程**通过；类型检查、构建、格式检查通过。
-- 升级测试工具到已修复版本后，全量 npm 依赖审计在执行时为 **0 漏洞**。
-
-- 用户提供的《人道至尊》约 9.77 MiB，GB18030，**1,507 章 / 3 卷 / 4,844,982 个非空白正文码点**。
-- 通过实际后台 UI 导入，核对首章、第 1,507 章、目录搜索、跨章书签恢复第 3 段、桌面纸色/手机夜间模式。
-- 上传前后原件与受保护下载的 SHA-256 相同；私有状态下访客列表为空，正文与下载返回 404。
-- 手动 axe 检查修正了书架装饰、目录序号、书封与标签对比度；详情、阅读器和书签弹窗的复验无违规。
-- 真实数据验收用的阅读历史/书签已清理，本地仅保留一份干净的私有小说草稿。
-- 实测占用端口时启动会安全拒绝；停止再启动后，同一书籍、1,507 章与下载哈希保留，仍为私有状态，测试时长为零。
-
-原始小说、私人会话、数据库与这些页面的截图不随代码提交。可复现测试仅使用仓库内的原创合成文本。
-
-## 三层重构本机验收（2026-09-13）
-
-- 后端 **80 项**测试（含真实小说只读解析）全部通过，无失败、错误或跳过；MyBatis / ArchUnit / Spotless / 严格 JavaDoc 和打包均通过。
-- PowerShell 脚本 **26 项**、前端单元测试 **6 项**、Playwright 桌面 / 手机 / 无障碍流程 **3 项**全部通过；TypeScript、Vite、前端和 Markdown 格式检查通过，npm audit 为 **0 漏洞**。
-- 完整复验在父进程显式设置 `DB_INIT_MODE=never` 后运行，测试仍使用隔离 H2 自动初始化，未读取真实 .env 或接入真实书库。
-- 原数据库表结构、HTTP 路径与响应字段保持兼容；重构前已停机备份 backend/data，未执行跨库迁移或重新导入真实小说。
-- 新版本已从原有 H2 书库成功启动，后端健康检查与前端首页均为 200；原《人道至尊》保留原书籍 ID、**1,507 章 / 3 卷 / 4,844,982 非空白正文码点**，仍为私有，目录与首末章读取通过，受保护下载的 SHA-256 与原 TXT 一致。
-- 原书库验收仅执行登录、退出及只读查询，没有进入阅读器或写入阅读记录；查询前后进度、历史、统计、书签完全一致。匿名请求无法枚举该私有书目，其详情、目录、首末章、下载和感想均返回 404，主人记录接口返回 401。
-
-## 未覆盖的范围
-
-未做公网部署验收、MySQL 验证、Safari/Firefox 与真实移动设备矩阵、长期负载测试、浏览器崩溃后的精确最后秒恢复或正式安全渗透测试。CI 的通过状态以 GitHub Actions 当前执行结果为准。
+尚未覆盖公网部署、长期负载、Redis 故障恢复 / 自动高可用、多实例业务并发、Safari / Firefox 与真实移动设备矩阵、精确最后秒恢复或正式安全渗透测试。Redis Session 只负责会话共享，不解决阅读时长的跨实例 / 多设备冲突合并。
