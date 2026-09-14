@@ -141,7 +141,7 @@ onMounted(load);
         ><span v-if="file" class="muted small">{{ (file.size / 1024 / 1024).toFixed(2) }} MiB</span>
       </form>
     </section>
-    <div v-if="imported" class="notice success" role="status">
+    <div v-if="imported" class="notice success" role="status" aria-label="小说导入结果">
       <div>
         <strong>《{{ imported.title }}》导入完成</strong>
         <p>
@@ -202,7 +202,8 @@ onMounted(load);
     <aside class="management-note">
       <h3>一点整理建议</h3>
       <p>
-        先在私有预览中核对书名、作者与章节，再决定是否公开。阅读记录和原始文件保存在后端数据目录中，迁移或升级前请停机备份整个数据目录。
+        先在私有预览中核对书名、作者与章节，再决定是否公开。章节正文和阅读记录保存在 MySQL，原始 TXT
+        保存在服务器私有磁盘。迁移或升级前请停机，并分别备份 MySQL 数据库和原件目录。
       </p>
     </aside>
     <dialog

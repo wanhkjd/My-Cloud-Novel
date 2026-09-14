@@ -94,7 +94,9 @@ test('owner imports a draft, restores a bookmark, and explicitly publishes to vi
   const uploaded = await responsePromise;
   expect(uploaded.status()).toBe(201);
   const book = await uploaded.json();
-  await expect(page.getByRole('status')).toContainText('2 章');
+  await expect(page.getByRole('status', { name: '小说导入结果', exact: true })).toContainText(
+    '2 章',
+  );
   await expectAccessible(page);
   const guest = await browser.newContext({ baseURL: 'http://127.0.0.1:15173' });
   const visitor = await guest.newPage();
