@@ -1,8 +1,8 @@
 package io.github.wanhkjd.cloudnovel.service;
 
-import io.github.wanhkjd.cloudnovel.dto.BookmarkCreateRequest;
-import io.github.wanhkjd.cloudnovel.dto.BookmarkEditRequest;
-import io.github.wanhkjd.cloudnovel.vo.BookmarkView;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkCreateRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkEditRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.BookmarkView;
 import java.util.List;
 
 /** 主人书签及公开感想业务接口。 */

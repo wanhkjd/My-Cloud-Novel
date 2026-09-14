@@ -1,0 +1,79 @@
+# 唯一的 Spring Boot 运行配置；敏感值由环境变量注入，不在仓库填写密码。
+server:
+  address: "${SERVER_ADDRESS:127.0.0.1}"
+  port: "${SERVER_PORT:8080}"
+  servlet:
+    session:
+      cookie:
+        name: CLOUDNOVEL_SESSION
+        path: /
+        http-only: true
+        same-site: lax
+        secure: "${COOKIE_SECURE:false}"
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: my-cloud-novel
+  # MySQL 是唯一业务数据库；建库、建表、授权由用户手工完成。
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: "${DB_URL}"
+    username: "${DB_USERNAME}"
+    password: "${DB_PASSWORD}"
+    hikari:
+      connection-timeout: 5000
+  sql:
+    init:
+      mode: never
+  # Redis 只保存管理员 HTTP 会话 / CSRF，不保存唯一的业务数据。
+  data:
+    redis:
+      host: "${REDIS_HOST:127.0.0.1}"
+      port: "${REDIS_PORT:6379}"
+      username: "${REDIS_USERNAME:}"
+      password: "${REDIS_PASSWORD}"
+      database: "${REDIS_DATABASE:0}"
+      ssl:
+        enabled: "${REDIS_SSL:false}"
+      connect-timeout: 3s
+      timeout: 3s
+  session:
+    timeout: 12h
+    redis:
+      repository-type: default
+      namespace: "${REDIS_NAMESPACE:cloud-novel:session}"
+      configure-action: none
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+
+# /api/health 仅检查进程；/api/ready 检查真实 MySQL / Redis，不暴露连接详情。
+management:
+  endpoints:
+    web:
+      base-path: /api
+      path-mapping:
+        health: ready
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+
+# 只有一名管理员；原始 TXT 存放于非静态资源目录，不能随前端公开。
+app:
+  admin:
+    username: "${ADMIN_USERNAME:admin}"
+    password: "${ADMIN_PASSWORD:}"
+  storage-directory: "${BOOK_STORAGE:./data/books}"
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    arg-name-based-constructor-auto-mapping: true

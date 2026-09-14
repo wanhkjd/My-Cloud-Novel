@@ -15,6 +15,13 @@
 
 > 不要把密码、实际 `.env`、生成的 SQL、Cookie 或小说正文发到聊天 / GitHub。根目录 `.env`、`.env.test`、`.local/` 均已被 Git 忽略。
 
+## 配置文件位置
+
+- [application.yml](../backend/src/main/resources/application.yml) 是唯一 Spring Boot 运行配置；MySQL、Redis、会话、上传和存储设置都在这里，通过环境变量注入本机差异。
+- `.env` / `.env.test` 只是私有环境变量载体，不是另一套应用配置；不要把密码复制进受 Git 管理的 YAML。
+- [deploy/mysql/schema.sql](../deploy/mysql/schema.sql) 是手工初始化表结构的唯一源码，准备脚本将它组合进私有 `bootstrap.sql`。它不再位于 resources，也不打入 JAR；本次只有文件迁移，**未改变表结构，无需因此重建数据库**。
+- 已生成的 `.local/setup` 材料、小说原件和旧备份无需重建或删除。Redis 原生 `.conf` 保留官方格式，容器声明继续使用 YAML。
+
 ## 1. 准备私有配置（不会操作服务或数据库）
 
 在项目根目录执行。如果已有 `.local/setup` 输出，请直接检查和复用，脚本会拒绝覆盖，不要为了重跑而删除数据库或重置用户。

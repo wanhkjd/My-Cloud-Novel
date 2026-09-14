@@ -1,10 +1,10 @@
 package io.github.wanhkjd.cloudnovel.service;
 
-import io.github.wanhkjd.cloudnovel.dto.PositionRequest;
-import io.github.wanhkjd.cloudnovel.dto.ReadingSessionRequest;
-import io.github.wanhkjd.cloudnovel.vo.ProgressView;
-import io.github.wanhkjd.cloudnovel.vo.ReadingSessionView;
-import io.github.wanhkjd.cloudnovel.vo.ReadingStatsView;
+import io.github.wanhkjd.cloudnovel.dto.req.PositionRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.ReadingSessionRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.ProgressView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ReadingSessionView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ReadingStatsView;
 import java.util.List;
 
 /** 唯一主人的阅读业务接口；访客记录不会进入此接口。 */

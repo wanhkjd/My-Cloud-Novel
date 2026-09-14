@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="io.github.wanhkjd.cloudnovel.mapper.ChapterMapper">
-  <select id="findSummaries" resultType="io.github.wanhkjd.cloudnovel.entity.ChapterEntity">
+<mapper namespace="io.github.wanhkjd.cloudnovel.dao.mapper.ChapterMapper">
+  <select id="findSummaries" resultType="io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity">
     SELECT book_id, chapter_index, title, volume, '' AS content, character_count
     FROM chapters WHERE book_id = #{bookId} ORDER BY chapter_index
   </select>
-  <select id="findByPosition" resultType="io.github.wanhkjd.cloudnovel.entity.ChapterEntity">
+  <select id="findByPosition" resultType="io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity">
     SELECT book_id, chapter_index, title, volume, content, character_count
     FROM chapters WHERE book_id = #{bookId} AND chapter_index = #{chapterIndex}
   </select>

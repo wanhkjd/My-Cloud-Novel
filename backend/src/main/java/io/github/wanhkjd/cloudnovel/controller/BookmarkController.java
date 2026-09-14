@@ -1,10 +1,10 @@
 package io.github.wanhkjd.cloudnovel.controller;
 
-import io.github.wanhkjd.cloudnovel.dto.BookmarkCreateRequest;
-import io.github.wanhkjd.cloudnovel.dto.BookmarkEditRequest;
-import io.github.wanhkjd.cloudnovel.security.CurrentUser;
+import io.github.wanhkjd.cloudnovel.core.auth.CurrentUser;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkCreateRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkEditRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.BookmarkView;
 import io.github.wanhkjd.cloudnovel.service.BookmarkService;
-import io.github.wanhkjd.cloudnovel.vo.BookmarkView;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;

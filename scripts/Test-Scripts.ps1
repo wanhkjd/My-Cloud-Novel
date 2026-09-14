@@ -20,6 +20,12 @@ foreach ($file in Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File
     Assert-Check ($parseErrors.Count -eq 0) ('PowerShell syntax errors in ' + $file.Name)
 }
 
+$resources = Join-Path $PSScriptRoot '../backend/src/main/resources'
+$configurations = @(Get-ChildItem -LiteralPath $resources -Filter 'application*' -File)
+Assert-Check ($configurations.Count -eq 1 -and $configurations[0].Name -eq 'application.yml') 'Spring runtime configuration must be a single YAML file.'
+Assert-Check (Test-Path -LiteralPath (Join-Path $PSScriptRoot '../deploy/mysql/schema.sql') -PathType Leaf) 'Manual MySQL schema must live under deploy/mysql.'
+Assert-Check (-not (Test-Path -LiteralPath (Join-Path $resources 'schema.sql'))) 'Manual DDL must not be packaged as a runtime initialization resource.'
+
 $names = @('ADMIN_USERNAME', 'ADMIN_PASSWORD', 'COOKIE_SECURE', 'DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'DB_INIT_MODE', 'BOOK_STORAGE', 'REDIS_HOST', 'REDIS_PORT', 'REDIS_USERNAME', 'REDIS_PASSWORD', 'REDIS_DATABASE', 'REDIS_NAMESPACE', 'REDIS_SSL', 'TEST_MYSQL_HOST', 'TEST_MYSQL_PORT', 'TEST_DB_USERNAME', 'TEST_DB_PASSWORD', 'E2E_DB_USERNAME', 'E2E_DB_PASSWORD', 'TEST_REDIS_HOST', 'TEST_REDIS_PORT', 'TEST_REDIS_USERNAME', 'TEST_REDIS_PASSWORD', 'CLOUD_NOVEL_UNKNOWN_TEST_SETTING')
 $before = @{}
 foreach ($name in $names) { $before[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
@@ -163,11 +169,13 @@ DB_URL=jdbc:obsolete:must-not-copy
     $start = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Start-Local.ps1') -Raw
     Assert-Check ($start.Contains('Import-LocalConfig.ps1') -and $start.Contains("StartsWith('jdbc:mysql://')")) 'Startup must require MySQL via the tested loader.'
     Assert-Check ($start.Contains("'REDIS_PASSWORD'") -and $start.Contains('/api/ready') -and $start.Contains('/api/books')) 'Startup must verify Redis, MySQL and schema readiness.'
-    Assert-Check ($start.Contains('verify -DskipITs;')) 'Startup must clearly separate packaging from full infrastructure verification.'
+    Assert-Check ($start.Contains('clean verify -DskipITs;')) 'Startup must clearly separate packaging from full infrastructure verification.'
     Assert-Check (-not $start.Contains('WriteAllText')) 'Startup must not silently replace configuration.'
     $verification = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Test.ps1') -Raw
     Assert-Check ($verification.Contains("'.env.test'") -and $verification.Contains('-Mode Test')) 'Full verification must load only dedicated test credentials.'
     Assert-Check ($verification.Contains('if ($UnitOnly)') -and $verification.Contains("'-DskipITs'")) 'Skipping infrastructure tests must be an explicit opt-in.'
+    Assert-Check ($verification.Contains("@('-B', '-ntp', 'clean', 'verify')")) 'Verification must remove stale classes and configuration before building.'
+    Assert-Check ($verification.Contains('../backend/src/main/resources/application.yml')) 'YAML formatting must be included in verification.'
     $rejected = $false
     try { & (Join-Path $PSScriptRoot 'Test.ps1') -UnitOnly -BrowserTests } catch { $rejected = $true }
     Assert-Check $rejected 'Browser verification must not run in UnitOnly mode.'

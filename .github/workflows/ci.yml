@@ -67,14 +67,14 @@ jobs:
           GRANT SELECT, INSERT, UPDATE, DELETE ON cloud_novel_e2e.* TO 'cloud_novel_e2e'@'%';
           SQL
           for database in cloud_novel_test cloud_novel_e2e; do
-            mysql --protocol=TCP -h 127.0.0.1 -u root --default-character-set=utf8mb4 "$database" < backend/src/main/resources/schema.sql
+            mysql --protocol=TCP -h 127.0.0.1 -u root --default-character-set=utf8mb4 "$database" < deploy/mysql/schema.sql
           done
       - name: PowerShell configuration and syntax checks
         shell: pwsh
         run: ./scripts/Test-Scripts.ps1
       - name: Backend format, architecture, unit tests, real MySQL and Redis integration, JavaDoc
         working-directory: backend
-        run: mvn -B -ntp verify
+        run: mvn -B -ntp clean verify
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -85,7 +85,7 @@ jobs:
         working-directory: frontend
         run: |
           npm run format:check
-          npx --no-install prettier --check ../README.md "../docs/*.md" ../.github/workflows/ci.yml ../deploy/compose.redis.yml
+          npx --no-install prettier --check ../README.md "../docs/*.md" ../.github/workflows/ci.yml ../deploy/compose.redis.yml ../backend/src/main/resources/application.yml
           npm test
           npm run build
       - name: Install test browser

@@ -30,8 +30,8 @@ $env:SERVER_PORT = '8080'
 $env:API_PROXY_TARGET = 'http://127.0.0.1:8080'
 if (-not $SkipBuild) {
     Push-Location $backend
-    # Startup runs unit checks and packaging. Full isolated MySQL/Redis verification is scripts/Test.ps1.
-    try { & mvn.cmd -q -ntp verify -DskipITs; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
+    # Clean removes obsolete compiled packages/configuration before unit checks and packaging. Full isolated MySQL/Redis verification is scripts/Test.ps1.
+    try { & mvn.cmd -q -ntp clean verify -DskipITs; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
     Push-Location $frontend
     try {
         if (-not (Test-Path -LiteralPath (Join-Path $frontend 'node_modules'))) { & npm.cmd ci; if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' } }

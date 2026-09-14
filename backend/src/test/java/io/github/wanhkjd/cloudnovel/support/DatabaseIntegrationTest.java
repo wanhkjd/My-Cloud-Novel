@@ -2,7 +2,7 @@ package io.github.wanhkjd.cloudnovel.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.wanhkjd.cloudnovel.storage.NovelFileStorage;
+import io.github.wanhkjd.cloudnovel.core.storage.NovelFileStorage;
 import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

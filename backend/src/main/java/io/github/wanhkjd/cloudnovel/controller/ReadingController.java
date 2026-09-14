@@ -1,11 +1,11 @@
 package io.github.wanhkjd.cloudnovel.controller;
 
-import io.github.wanhkjd.cloudnovel.dto.PositionRequest;
-import io.github.wanhkjd.cloudnovel.dto.ReadingSessionRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.PositionRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.ReadingSessionRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.ProgressView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ReadingSessionView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ReadingStatsView;
 import io.github.wanhkjd.cloudnovel.service.ReadingService;
-import io.github.wanhkjd.cloudnovel.vo.ProgressView;
-import io.github.wanhkjd.cloudnovel.vo.ReadingSessionView;
-import io.github.wanhkjd.cloudnovel.vo.ReadingStatsView;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;

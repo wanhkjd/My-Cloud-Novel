@@ -21,9 +21,9 @@
      Service 接口：Library / Reading / Bookmark
                        │
      service.impl：业务规则、权限、事务、DTO/Entity/VO 转换
-          ├─ parser / storage / Clock
+          ├─ core.parser / core.storage / Clock
           │    解码分章 / 私有原件 / 可测试时钟
-          └─ Mapper 接口 + resources/mapper/*.xml
+          └─ dao.mapper 接口 + resources/mapper/*.xml
                        │
              MySQL（InnoDB / utf8mb4）
 ```
@@ -34,22 +34,45 @@
 
 Java 包根为 `io.github.wanhkjd.cloudnovel`。
 
-| 包 / 目录         | 职责与约束                                                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| controller        | LibraryController、ReadingController、BookmarkController：只做请求校验、身份判断、HTTP 映射，依赖 Service 接口；不写 SQL，不直接操作数据库或原件 |
-| controller/advice | ApiExceptionHandler：把业务异常映射到状态码和统一的 ErrorView                                                                                    |
-| service           | LibraryService、ReadingService、BookmarkService：声明业务能力和调用约束，公开方法有 JavaDoc                                                      |
-| service/impl      | 三个 ServiceImpl：统一隐私、位置、幂等及事务规则；不依赖 Servlet、Controller、HTTP 或 JDBC                                                       |
-| mapper            | BookMapper、ChapterMapper、ReadingMapper、BookmarkMapper：MyBatis 接口，用 @Mapper 注册；不承载业务规则                                          |
-| resources/mapper  | 四个对应的 XML：参数绑定 SQL、唯一约束下的写入、列表/统计投影；SQL 不散落在 Controller/Service 中                                                |
-| dto               | 带 Bean Validation 的请求 record，例如 BookEditRequest、PositionRequest；不能当数据库实体使用                                                    |
-| entity            | 与表对应的不可变 record，例如 BookEntity；不直接序列化返回给客户端                                                                               |
-| vo                | 面向客户端的响应与只读查询投影；BookView 不含文件路径、SHA-256 等内部字段                                                                        |
-| parser            | TxtNovelParser：无数据库依赖的编码识别、章节/卷识别与字数统计                                                                                    |
-| storage           | NovelFileStorage 接口 + LocalNovelFileStorage：私有 TXT 原字节、UUID 路径校验、禁止覆盖                                                          |
-| security          | 单管理员配置与 CurrentUser 身份工具；公开内容的业务权限仍由 Service 检查                                                                         |
-| exception         | BusinessException：表达“不存在 / 冲突”，不携带 HTTP 类型或底层错误详情                                                                           |
-| config            | Clock、Spring Session Cookie 配置等基础设施，业务可注入固定时钟测试                                                                              |
+参考 novel 项目的分组方式，但不复制多用户平台模块。只保留五个一级包，测试目录与生产包对应：
+
+```text
+io.github.wanhkjd.cloudnovel
+├── CloudNovelApplication.java
+├── controller          # HTTP 入口
+├── service
+│   └── impl            # 业务实现与事务
+├── dao
+│   ├── entity          # 数据库记录
+│   └── mapper          # MyBatis 接口
+├── dto
+│   ├── req             # 请求模型
+│   └── resp            # 响应 / 查询投影
+└── core
+    ├── config          # Spring 配置
+    ├── auth            # 当前身份
+    ├── exception       # 业务异常与统一 HTTP 转换
+    ├── parser          # TXT 解析
+    └── storage         # 私有原件存储
+```
+
+| 包 / 目录                             | 职责与约束                                                                                           |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| controller                            | Library、Reading、Bookmark 入口只依赖 Service 接口；Auth 查询身份，Health 仅检查进程，不混入业务逻辑 |
+| service                               | 三个业务接口，声明能力、权限和参数约束；公开方法有中文 JavaDoc                                       |
+| service/impl                          | 统一隐私、位置、幂等及事务规则；不依赖 Servlet、Controller、HTTP 或 JDBC                             |
+| dao/entity                            | 与表对应的不可变 record，例如 BookEntity；不直接返回客户端                                           |
+| dao/mapper                            | Book、Chapter、Reading、Bookmark 的 MyBatis 接口；使用 @Mapper，不接收 Web 请求 DTO                  |
+| dto/req                               | 带 Bean Validation 的请求 record；不能当数据库实体使用                                               |
+| dto/resp                              | 面向客户端的响应与只读查询投影；不泄漏私有路径、SHA-256 等内部字段                                   |
+| core/config                           | SecurityConfig 与 TimeConfig；集中 Spring 配置和可测试时钟，不再手写重复的 Session Cookie Bean       |
+| core/auth                             | CurrentUser：把安全上下文转为主人身份；业务公开权限仍由 Service 判断                                 |
+| core/exception                        | BusinessException 不依赖 HTTP；ApiExceptionHandler 负责统一 HTTP 错误转换                            |
+| core/parser                           | TxtNovelParser：独立的编码识别、分章 / 分卷与字数统计，无数据库依赖                                  |
+| core/storage                          | NovelFileStorage 与 LocalNovelFileStorage：私有原字节、UUID 路径校验、禁止覆盖                       |
+| src/main/resources/mapper             | 四个 Mapper XML，namespace 对应 dao.mapper，实体 / 投影对应 dao.entity / dto.resp                    |
+| src/main/resources/application.yml    | 唯一 Spring Boot 运行配置，凭据由环境变量提供                                                        |
+| deploy/mysql/schema.sql（项目根目录） | 手工初始化 MySQL 的部署脚本，不打进 JAR，不由应用执行                                                |
 
 SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请求 DTO。所有值使用 MyBatis 参数绑定，不能把用户输入拼接成 SQL。列表和目录查询不加载完整前言/正文，章节按需读取。构造器注入依赖，不使用字段注入的生产代码。
 
@@ -82,7 +105,7 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 
 文件系统与数据库不是分布式事务。异常关机、磁盘权限问题或提交结果不确定时仍可能产生孤立文件 / 缺失原件，需要结合备份和日志人工核对；不要自动清理未知文件。内存同步锁不支持多实例部署，也不解决多设备同时阅读造成的时间重叠。
 
-所有业务表使用 MySQL InnoDB / utf8mb4；以外键、唯一约束和 CHECK 保证基本一致性。`schema.sql` 使用 CREATE TABLE IF NOT EXISTS，**只供你手工初始化新库，不负责升级已存在的表**。应用固定 `spring.sql.init.mode=never`，运行账户只需 SELECT / INSERT / UPDATE / DELETE。没有 H2 依赖或测试回退。步骤见 [MySQL / Redis 环境说明](mysql-redis-setup.md)。
+所有业务表使用 MySQL InnoDB / utf8mb4；以外键、唯一约束和 CHECK 保证基本一致性。`deploy/mysql/schema.sql` 使用 CREATE TABLE IF NOT EXISTS，**只供你手工初始化新库，不负责升级已存在的表**。应用固定 `spring.sql.init.mode=never`，运行账户只需 SELECT / INSERT / UPDATE / DELETE。没有 H2 依赖或测试回退。步骤见 [MySQL / Redis 环境说明](mysql-redis-setup.md)。
 
 ## 登录会话与原件边界
 
@@ -133,4 +156,4 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 4. 每 15 秒串行保存位置与会话，切章/离开时再次保存。会话按 UUID 和累计秒数重试，服务器不会重复增加旧请求中的秒数。
 5. 保存失败给出提示；页面仍打开时可以重试。未实现持久化离线 outbox，多标签/多设备间也不做同步锁。
 
-主人会话存活 12 小时。服务器重启或密码修改后需要重新登录；不会丢失数据库中的书籍和记录。运行配置与部署注意事项以根 README 为准。
+主人会话空闲超过 12 小时、主动退出或 Redis 会话被清除后需要重新登录；会话仍有效时，应用重启可继续读取 Redis 中的会话。修改管理员密码不会自动撤销已有会话，必要时应另行安排会话失效；不会因此删除 MySQL 中的书籍和记录。Cookie 名称、路径和安全属性统一由 application.yml 配置，Spring Boot / Spring Session 负责创建和清除。运行配置与部署注意事项以根 README 为准。

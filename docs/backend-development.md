@@ -6,12 +6,12 @@
 
 - Controller 接收 DTO、执行 `@Valid`、从安全上下文判断是否为主人，调用 Service 并返回 VO。HTTP 状态码、文件下载响应头只放在 Web 层。
 - Service 接口表达业务能力；实现类放在 `service.impl` 并标记 `@Service`。业务权限、参数边界、事务、累计会话幂等不能只依赖 Controller 的校验。
-- Mapper 使用 `@Mapper`；SQL 放入 `src/main/resources/mapper` 下同名 XML，只负责存取，不决定能否向访客公开。
-- Entity 表示数据库记录；请求用 DTO，响应使用 VO。禁止将 BookEntity 直接返回给前端，以免泄露内部字段。
+- Mapper 放在 `dao.mapper`，使用 `@Mapper`；SQL 放入 `src/main/resources/mapper` 下同名 XML，只负责存取，不决定能否向访客公开。
+- Entity 放在 `dao.entity`，表示数据库记录；请求模型放在 `dto.req`，响应 / 查询投影放在 `dto.resp`。禁止将 BookEntity 直接返回给前端，以免泄露内部字段。
 - 对书籍、章节、原件和公开感想的读取，复用 LibraryService 的可读性校验，不能各自实现一套相似但有差异的权限判断。
 - 依赖通过构造器注入，字段为 `private final`。避免通用 BaseService / BaseMapper 大继承树、无意义的工具类和只改名称的“假分层”。
 
-ArchUnit 在测试中检查层间依赖、Service 接口位置、实现类位置、Mapper 注解与接口类型，防止后续不小心跨层。
+ArchUnit 检查固定包布局、一级包无循环依赖、三层方向、DTO / Entity 隔离、Service 接口与实现位置、Mapper 注解、配置和异常处理器位置。生产包根只放启动类，不再增加零散的 entity、vo、config、security、novel 或 reading 旧包。完整目录树见 [架构说明](architecture.md#后端目录与职责)。
 
 ## 二、Java 与注释约定
 
@@ -56,7 +56,7 @@ BookView requireReadableBook(String id, boolean owner);
 2. 定义或更新 DTO / VO、Service 接口和中文 JavaDoc。
 3. 实现业务规则，在 Mapper XML 中实现需要的 SQL，不改动无关数据。
 4. 补充 Service 单元测试；SQL 改动补 Mapper 集成测试；HTTP 或权限改动补 MockMvc / 浏览器回归。
-5. 如果改表，提交显式迁移方案与备份说明；`schema.sql` 的 IF NOT EXISTS 不是迁移工具。
+5. 如果改表，提交显式迁移方案与备份说明；`deploy/mysql/schema.sql` 的 IF NOT EXISTS 不是迁移工具。
 6. 执行格式、测试、打包、文档校验，检查 Git diff 中没有小说、密码、数据库或运行产物。
 7. 创建可追踪的 Git commit 并推送 GitHub，遵守根目录 AGENTS.md。
 
@@ -70,10 +70,10 @@ mvn -B -ntp spotless:apply
 
 # 先在根目录加载 .env.test：scripts/Import-LocalConfig.ps1 -Mode Test
 # 完整验证：格式、单元/ArchUnit、真实 MySQL/Redis 集成、打包、JavaDoc
-mvn -B -ntp verify
+mvn -B -ntp clean verify
 
 # 缺少基础设施时可显式仅做单元与构建检查，不是完整验收
-mvn -B -ntp verify -DskipITs
+mvn -B -ntp clean verify -DskipITs
 
 # 排查时可单独运行一个单元测试；不能替代最终完整验证
 mvn -B -ntp -Dtest=ReadingServiceTest test
@@ -81,9 +81,11 @@ mvn -B -ntp -Dtest=ReadingServiceTest test
 
 JavaDoc 启用 doclint=all 和 failOnWarnings；缺失公开 API 文档或错误标签会让 verify 失败。 生成文档入口为 `backend/target/reports/apidocs/index.html`。不要通过关闭检查来绕过失败。完整项目（含前端、可选浏览器）使用根目录的 `scripts/Test.ps1`，覆盖范围见 [测试说明](testing.md)。
 
-## 六、数据与环境安全
+## 六、配置与数据安全
 
-运行必须配置 MySQL 和 Redis，不得加入 H2 或其他嵌入式替代。`schema.sql` 只由用户 / DBA 手工执行，应用不能拥有建库、DROP 或授权能力。
+Spring Boot 运行配置只维护 `src/main/resources/application.yml`，不要再增加 application.properties 或内容重复的 dev / prod 文件。差异使用环境变量注入，敏感值不设仓库默认密码。Spring 配置类统一放在 `core.config`，优先使用框架原生 YAML 属性（例如 Spring Session Cookie），不要再写同值的自定义 Bean。修改 YAML 必须补 `ApplicationConfigurationTest`，修改 Mapper / 实体包名必须同步 XML 并通过 `MapperXmlTest` 和真实集成测试。
+
+运行必须配置 MySQL 和 Redis，不得加入 H2 或其他嵌入式替代。`deploy/mysql/schema.sql` 只由用户 / DBA 手工执行，应用不能拥有建库、DROP 或授权能力。
 
 后端 `*IT` 由 Maven Failsafe 在 verify 执行：固定 `cloud_novel_test` 库与同名 DML 账户、Redis DB 15 和本次随机命名空间、临时原件目录。浏览器测试使用独立的 `cloud_novel_e2e` 库 / 账户和 Redis DB 14。测试仅接受 `.env.test` 中的 `TEST_*` / `E2E_*` 配置，拒绝 root / 业务账户，不继承真实 DB_URL；没有凭据必须明确失败，不得静默跳过。只清理专用库的合成数据和本次 Redis 键，严禁 FLUSHDB / FLUSHALL。
 

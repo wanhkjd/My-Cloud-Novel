@@ -45,7 +45,7 @@ $redisSecret = if ($RedisPassword) { [Net.NetworkCredential]::new('', $RedisPass
 if ($redisSecret -cnotmatch '^[A-Za-z0-9_-]{1,128}$') {
     throw 'For generated starter files, use a Redis password of 1-128 letters, digits, underscores or hyphens. Configure other characters manually instead.'
 }
-$schema = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../backend/src/main/resources/schema.sql') -Raw -Encoding UTF8
+$schema = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../deploy/mysql/schema.sql') -Raw -Encoding UTF8
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $app = @"
 ADMIN_USERNAME=$($identity.ADMIN_USERNAME)

@@ -1,12 +1,12 @@
 package io.github.wanhkjd.cloudnovel.controller;
 
-import io.github.wanhkjd.cloudnovel.dto.BookEditRequest;
-import io.github.wanhkjd.cloudnovel.security.CurrentUser;
+import io.github.wanhkjd.cloudnovel.core.auth.CurrentUser;
+import io.github.wanhkjd.cloudnovel.dto.req.BookEditRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.BookView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ChapterSummaryView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ChapterView;
+import io.github.wanhkjd.cloudnovel.dto.resp.DownloadFile;
 import io.github.wanhkjd.cloudnovel.service.LibraryService;
-import io.github.wanhkjd.cloudnovel.vo.BookView;
-import io.github.wanhkjd.cloudnovel.vo.ChapterSummaryView;
-import io.github.wanhkjd.cloudnovel.vo.ChapterView;
-import io.github.wanhkjd.cloudnovel.vo.DownloadFile;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

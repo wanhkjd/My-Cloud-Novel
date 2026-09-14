@@ -1,13 +1,13 @@
 package io.github.wanhkjd.cloudnovel.service.impl;
 
-import io.github.wanhkjd.cloudnovel.dto.BookmarkCreateRequest;
-import io.github.wanhkjd.cloudnovel.dto.BookmarkEditRequest;
-import io.github.wanhkjd.cloudnovel.entity.BookmarkEntity;
-import io.github.wanhkjd.cloudnovel.exception.BusinessException;
-import io.github.wanhkjd.cloudnovel.mapper.BookmarkMapper;
+import io.github.wanhkjd.cloudnovel.core.exception.BusinessException;
+import io.github.wanhkjd.cloudnovel.dao.entity.BookmarkEntity;
+import io.github.wanhkjd.cloudnovel.dao.mapper.BookmarkMapper;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkCreateRequest;
+import io.github.wanhkjd.cloudnovel.dto.req.BookmarkEditRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.BookmarkView;
 import io.github.wanhkjd.cloudnovel.service.BookmarkService;
 import io.github.wanhkjd.cloudnovel.service.LibraryService;
-import io.github.wanhkjd.cloudnovel.vo.BookmarkView;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;

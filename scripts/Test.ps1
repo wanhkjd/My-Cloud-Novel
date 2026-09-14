@@ -27,7 +27,7 @@ try {
     }
     Push-Location (Join-Path $root 'backend')
     try {
-        $arguments = @('-B', '-ntp', 'verify')
+        $arguments = @('-B', '-ntp', 'clean', 'verify')
         if ($UnitOnly) { $arguments += '-DskipITs' }
         & mvn.cmd @arguments
         if ($LASTEXITCODE -ne 0) { throw 'Backend verification failed.' }
@@ -41,7 +41,7 @@ try {
         }
         & npm.cmd run format:check
         if ($LASTEXITCODE -ne 0) { throw 'Formatting check failed. Run npm run format in frontend.' }
-        & npx.cmd --no-install prettier --check '../README.md' '../docs/*.md' '../.github/workflows/ci.yml' '../deploy/compose.redis.yml'
+        & npx.cmd --no-install prettier --check '../README.md' '../docs/*.md' '../.github/workflows/ci.yml' '../deploy/compose.redis.yml' '../backend/src/main/resources/application.yml'
         if ($LASTEXITCODE -ne 0) { throw 'Documentation formatting check failed.' }
         & npm.cmd test
         if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }

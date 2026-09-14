@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="io.github.wanhkjd.cloudnovel.mapper.BookMapper">
+<mapper namespace="io.github.wanhkjd.cloudnovel.dao.mapper.BookMapper">
   <!-- 书架不加载前言；是否公开由 Service 传入条件。 -->
-  <select id="findAll" resultType="io.github.wanhkjd.cloudnovel.entity.BookEntity">
+  <select id="findAll" resultType="io.github.wanhkjd.cloudnovel.dao.entity.BookEntity">
     SELECT id, title, author, description, encoding, chapter_count, volume_count,
            character_count, '' AS preface, sha256, catalog_published, text_published, created_at
     FROM books
     <where><if test="publishedOnly">catalog_published = TRUE</if></where>
     ORDER BY created_at DESC, id
   </select>
-  <select id="findById" resultType="io.github.wanhkjd.cloudnovel.entity.BookEntity">
+  <select id="findById" resultType="io.github.wanhkjd.cloudnovel.dao.entity.BookEntity">
     SELECT id, title, author, description, encoding, chapter_count, volume_count,
            character_count, preface, sha256, catalog_published, text_published, created_at
     FROM books WHERE id = #{id}

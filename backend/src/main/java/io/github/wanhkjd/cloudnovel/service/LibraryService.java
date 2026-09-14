@@ -1,10 +1,10 @@
 package io.github.wanhkjd.cloudnovel.service;
 
-import io.github.wanhkjd.cloudnovel.dto.BookEditRequest;
-import io.github.wanhkjd.cloudnovel.vo.BookView;
-import io.github.wanhkjd.cloudnovel.vo.ChapterSummaryView;
-import io.github.wanhkjd.cloudnovel.vo.ChapterView;
-import io.github.wanhkjd.cloudnovel.vo.DownloadFile;
+import io.github.wanhkjd.cloudnovel.dto.req.BookEditRequest;
+import io.github.wanhkjd.cloudnovel.dto.resp.BookView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ChapterSummaryView;
+import io.github.wanhkjd.cloudnovel.dto.resp.ChapterView;
+import io.github.wanhkjd.cloudnovel.dto.resp.DownloadFile;
 import java.io.IOException;
 import java.util.List;
 

@@ -39,6 +39,17 @@
 
 后端各层职责与接口见 [架构说明](docs/architecture.md)，编码、中文注释和新增功能流程见 [后端开发规范](docs/backend-development.md)。
 
+## 目录与配置
+
+后端按 `controller → service/impl → dao/mapper` 分层，数据库实体集中在 `dao/entity`，请求和响应分别在 `dto/req`、`dto/resp`；Spring 配置、身份、异常、解析和原件存储集中在 `core`。完整目录树见 [架构说明](docs/architecture.md#后端目录与职责)。前后端继续独立构建，不引入爬虫、支付、多用户账户或分库分表。
+
+- [application.yml](backend/src/main/resources/application.yml)：**唯一 Spring Boot 运行配置**。统一管理 MySQL、Redis、会话 Cookie、上传限制和私有原件路径，不再保留 properties 或重复的环境 profile。
+- `.env` / `.env.test`：仅供本机脚本把私有参数注入环境变量，不是另一套 Spring 配置；真实密码继续留在 Git 之外，不能写进 YAML。
+- [deploy/mysql/schema.sql](deploy/mysql/schema.sql)：手工建表脚本，已移出运行资源目录，不随 JAR 自动执行；表结构没有因目录整理而改变。
+- Maven POM、MyBatis Mapper XML 和 Redis 原生 `.conf` 保持各自工具要求的格式，不强行改成 YAML。
+
+启动与验收脚本会先执行 `mvn clean verify`，清除旧包的 class 和旧配置副本；不会清理 `data`、`backups` 或小说原件。
+
 ## 本机启动（Windows）
 
 准备好 PATH 中的 **JDK 21、Maven 3.9+、Node.js 24 LTS 和 npm**，并完成 [MySQL / Redis 初始化](docs/mysql-redis-setup.md)，把私有运行配置保存到根目录 `.env`。
@@ -77,7 +88,7 @@ cd D:\javaweb\workspace\MyCloudNovel
 # 终端 A：在项目根目录加载完整的 MySQL / Redis / 管理员配置
 .\scripts\Import-LocalConfig.ps1 -Path .\.env
 cd backend
-mvn spring-boot:run
+mvn clean spring-boot:run
 
 # 终端 B
 cd frontend

@@ -1,15 +1,14 @@
 package io.github.wanhkjd.cloudnovel.controller;
 
-import io.github.wanhkjd.cloudnovel.security.CurrentUser;
-import io.github.wanhkjd.cloudnovel.vo.AuthView;
-import io.github.wanhkjd.cloudnovel.vo.CsrfView;
-import io.github.wanhkjd.cloudnovel.vo.HealthView;
+import io.github.wanhkjd.cloudnovel.core.auth.CurrentUser;
+import io.github.wanhkjd.cloudnovel.dto.resp.AuthView;
+import io.github.wanhkjd.cloudnovel.dto.resp.CsrfView;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 认证状态与健康检查入口；登录、退出和密码校验由 Spring Security 过滤器处理。 */
+/** 认证状态入口；登录、退出和密码校验由 Spring Security 过滤器处理。 */
 @RestController
 public class AuthController {
     /** 创建由 Spring Security 提供身份上下文的认证查询控制器。 */
@@ -36,15 +35,5 @@ public class AuthController {
     public AuthView me(Authentication authentication) {
         boolean owner = CurrentUser.isOwner(authentication);
         return new AuthView(owner, owner ? authentication.getName() : "");
-    }
-
-    /**
-     * 检查服务进程是否能响应请求，不作为数据库容量或就绪探针。
-     *
-     * @return 固定健康标识
-     */
-    @GetMapping("/api/health")
-    public HealthView health() {
-        return new HealthView("ok");
     }
 }
