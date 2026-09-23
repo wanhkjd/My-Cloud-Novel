@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ArrowLeft, BookOpen, Download, LockKeyhole, Search } from 'lucide-vue-next';
+import { ArrowLeft, BookOpen, LockKeyhole, Search } from 'lucide-vue-next';
 import { errorMessage, request } from '../lib/api';
 import { auth } from '../lib/auth';
 import { createJournal } from '../lib/journal';
@@ -75,7 +75,7 @@ onMounted(load);
           <div class="detail-facts">
             <span>{{ number(book.chapterCount) }} 章</span
             ><span>{{ words(book.characterCount) }}</span
-            ><span>{{ book.volumeCount }} 卷</span><span>{{ book.encoding }}</span>
+            ><span>{{ book.volumeCount }} 卷</span>
           </div>
           <p class="detail-description">
             {{ book.description || '这本书还没有简介。读到有感触的地方，不妨留下一枚书签。' }}
@@ -84,12 +84,6 @@ onMounted(load);
             <RouterLink v-if="book.canRead" class="button primary" :to="continueUrl"
               ><BookOpen :size="17" /> {{ progress ? '继续阅读' : '开始阅读' }}</RouterLink
             ><span v-else class="button disabled"><LockKeyhole :size="16" /> 正文暂未公开</span
-            ><a
-              v-if="book.canRead"
-              class="button secondary"
-              :href="'/api/books/' + book.id + '/download'"
-              download
-              ><Download :size="16" /> 下载 TXT</a
             ><RouterLink v-if="auth.authenticated" class="text-link" to="/admin"
               >编辑书籍 →</RouterLink
             >

@@ -10,8 +10,6 @@ import {
   Sun,
   Minus,
   Plus,
-  Pause,
-  Play,
   Bookmark as BookmarkIcon,
   X,
   Search,
@@ -20,7 +18,7 @@ import { errorMessage, request } from '../lib/api';
 import { auth } from '../lib/auth';
 import { createJournal } from '../lib/journal';
 import { ReadingClock } from '../lib/reading-clock';
-import { dateKey, duration, readingLink } from '../lib/format';
+import { dateKey, readingLink } from '../lib/format';
 import type {
   Book,
   Bookmark,
@@ -41,10 +39,6 @@ const paragraph = ref(0);
 const error = ref('');
 const loading = ref(true);
 const syncError = ref('');
-const syncText = ref('尚未保存');
-const seconds = ref(0);
-const running = ref(false);
-const paused = ref(false);
 const font = ref(20);
 const theme = ref('paper');
 const bookmarks = ref<Bookmark[]>([]);
@@ -102,14 +96,11 @@ function sample() {
   const active =
     !loading.value &&
     !!chapter.value &&
-    !paused.value &&
     !selected.value &&
     !tocOpen.value &&
     document.visibilityState === 'visible' &&
     document.hasFocus();
   clock.tick(performance.now(), active);
-  seconds.value = clock.seconds;
-  running.value = clock.running;
 }
 function interact() {
   sample();
@@ -187,11 +178,9 @@ function flush(keepalive = false): Promise<boolean> {
             pending.delete(item.id);
         }
         syncError.value = '';
-        syncText.value = owner ? '已同步到书房' : '已保存到本机';
         return true;
       } catch (e) {
         syncError.value = errorMessage(e);
-        syncText.value = '保存未完成';
         return false;
       }
     });
@@ -224,7 +213,6 @@ async function load() {
     bookmarks.value = notes;
     clock = new ReadingClock(performance.now());
     segment = { id: crypto.randomUUID(), startedAt: Date.now(), base: 0 };
-    seconds.value = 0;
     loading.value = false;
     const requested =
       route.query.p === undefined
@@ -276,12 +264,6 @@ function openToc(tab = 'chapters') {
 function closeToc() {
   tocOpen.value = false;
   interact();
-}
-function togglePause() {
-  sample();
-  paused.value = !paused.value;
-  interact();
-  void flush();
 }
 function openBookmark(index: number) {
   if (!book.value || !chapter.value) return;
@@ -444,11 +426,7 @@ onBeforeUnmount(() => {
           <span>·</span> {{ chapter.index + 1 }} / {{ book?.chapterCount }} 章
         </p>
       </header>
-      <p class="reading-hint">
-        段落旁的书签，可留住位置与感想。{{
-          owner ? '当前为主人阅读记录。' : '阅读足迹仅保存在本机。'
-        }}
-      </p>
+      <p class="reading-hint">段落旁的书签，可以留住位置与感想。</p>
       <div class="reading-body">
         <p
           v-for="(text, index) in chapter.paragraphs"
@@ -482,9 +460,7 @@ onBeforeUnmount(() => {
             @click="go(chapter.index + 1)"
           >
             下一章 <ChevronRight :size="16" /></button
-          ><RouterLink v-else class="button primary" to="/journal"
-            >读到这里，看看阅读足迹</RouterLink
-          >
+          ><RouterLink v-else class="button primary" to="/">回到书架</RouterLink>
         </div>
       </div>
     </article>
@@ -496,19 +472,10 @@ onBeforeUnmount(() => {
       >
         <ChevronLeft :size="20" /><span class="tool-label">上一章</span>
       </button>
-      <div class="reader-save-status">
-        <button
-          class="timer-button"
-          :aria-label="paused ? '恢复阅读计时' : '暂停阅读计时'"
-          @click="togglePause"
-        >
-          <Pause v-if="!paused" :size="13" /><Play v-else :size="13" /><span
-            class="status-dot"
-            :class="{ idle: !running }"
-          />{{ running ? '计时中' : '已暂停' }} · {{ duration(seconds) }}</button
-        ><small v-if="syncError" class="danger-text" role="alert"
-          >{{ syncText }} <button class="retry-save" @click="flush()">重试</button></small
-        ><small v-else>{{ syncText }} · 第 {{ paragraph + 1 }} 段</small>
+      <div v-if="syncError" class="reader-save-status" aria-live="polite">
+        <small class="danger-text" role="alert">
+          保存未完成 <button class="retry-save" @click="flush()">重试</button>
+        </small>
       </div>
       <button
         :disabled="!chapter || !book || chapter.index + 1 >= book.chapterCount || loading"
@@ -518,7 +485,6 @@ onBeforeUnmount(() => {
         <span class="tool-label">下一章</span><ChevronRight :size="20" />
       </button>
     </footer>
-    <div v-if="syncError" class="reader-sync-error" role="alert">{{ syncError }}</div>
     <dialog ref="toc" class="toc-dialog" aria-labelledby="toc-heading" @close="closeToc">
       <div class="section-top">
         <h2 id="toc-heading">{{ book?.title }}</h2>
