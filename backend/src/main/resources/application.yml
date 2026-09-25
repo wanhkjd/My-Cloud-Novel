@@ -1,7 +1,6 @@
-# 唯一的 Spring Boot 运行配置；敏感值由环境变量注入，不在仓库填写密码。
 server:
-  address: "${SERVER_ADDRESS:127.0.0.1}"
-  port: "${SERVER_PORT:8080}"
+  address: 127.0.0.1
+  port: 8080
   servlet:
     session:
       cookie:
@@ -9,20 +8,23 @@ server:
         path: /
         http-only: true
         same-site: lax
-        secure: "${COOKIE_SECURE:false}"
+        secure: false
   error:
     include-message: never
     include-stacktrace: never
 
 spring:
+  # 激活的环境；具体取值放在 application-dev.yml（被 git 忽略），模板见 application-dev.yml.example。
+  profiles:
+    active: dev
   application:
     name: my-cloud-novel
   # MySQL 是唯一业务数据库；建库、建表、授权由用户手工完成。
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: "${DB_URL}"
-    username: "${DB_USERNAME}"
-    password: "${DB_PASSWORD}"
+    driver-class-name: ${cloudnovel.datasource.driver-class-name}
+    url: jdbc:mysql://${cloudnovel.datasource.host}:${cloudnovel.datasource.port}/${cloudnovel.datasource.database}?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&sslMode=DISABLED&allowPublicKeyRetrieval=true
+    username: ${cloudnovel.datasource.username}
+    password: ${cloudnovel.datasource.password}
     hikari:
       connection-timeout: 5000
   sql:
@@ -31,20 +33,20 @@ spring:
   # Redis 只保存管理员 HTTP 会话 / CSRF，不保存唯一的业务数据。
   data:
     redis:
-      host: "${REDIS_HOST:127.0.0.1}"
-      port: "${REDIS_PORT:6379}"
-      username: "${REDIS_USERNAME:}"
-      password: "${REDIS_PASSWORD}"
-      database: "${REDIS_DATABASE:0}"
+      host: ${cloudnovel.redis.host}
+      port: ${cloudnovel.redis.port}
+      username: ${cloudnovel.redis.username}
+      password: ${cloudnovel.redis.password}
+      database: ${cloudnovel.redis.database}
       ssl:
-        enabled: "${REDIS_SSL:false}"
+        enabled: false
       connect-timeout: 3s
       timeout: 3s
   session:
     timeout: 12h
     redis:
       repository-type: default
-      namespace: "${REDIS_NAMESPACE:cloud-novel:session}"
+      namespace: cloud-novel:session
       configure-action: none
   servlet:
     multipart:
@@ -68,9 +70,9 @@ management:
 # 只有一名管理员；原始 TXT 存放于非静态资源目录，不能随前端公开。
 app:
   admin:
-    username: "${ADMIN_USERNAME:admin}"
-    password: "${ADMIN_PASSWORD:}"
-  storage-directory: "${BOOK_STORAGE:./data/books}"
+    username: ${cloudnovel.admin.username}
+    password: ${cloudnovel.admin.password}
+  storage-directory: ${cloudnovel.storage-directory}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

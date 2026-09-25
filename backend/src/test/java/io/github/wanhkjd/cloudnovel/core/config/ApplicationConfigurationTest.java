@@ -37,28 +37,40 @@ import org.springframework.session.SessionRepository;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.util.unit.DataSize;
 
-/** 验证真实 YAML 的绑定和框架默认会话配置；所有凭据为合成值，不连接基础设施。 */
+/**
+ * 验证 application.yml 通过 cloudnovel.* 命名空间（application-dev.yml，被 git 忽略）组合出运行配置，
+ * 并保留框架默认会话行为；所有取值为合成值，不连接任何基础设施。
+ */
 class ApplicationConfigurationTest {
     @Test
-    void yamlIsTheOnlyRuntimeConfigurationAndDdlIsNotPackaged() throws IOException {
+    void onlyCommittedYamlAndNoPackagedDdl() throws IOException {
         var resources = new PathMatchingResourcePatternResolver();
+        // application-dev.yml 被 git 忽略、随环境存在与否变化，因此只断言已提交的 application.yml。
         assertThat(resources.getResources("classpath*:application*.yml"))
                 .extracting(resource -> resource.getFilename())
-                .containsExactly("application.yml");
+                .contains("application.yml");
         assertThat(resources.getResources("classpath*:application*.properties")).isEmpty();
         assertThat(resources.getResources("classpath*:application*.yaml")).isEmpty();
-        assertThat(loadYaml()).hasSize(1);
         assertThat(new ClassPathResource("schema.sql").exists()).isFalse();
         assertThat(new ClassPathResource("data.sql").exists()).isFalse();
     }
 
     @Test
-    void mysqlRedisAndMapperSettingsBindWithoutEmbeddedFallbacks() throws IOException {
+    void activeProfileIsDev() throws IOException {
+        assertThat(yamlEnvironment().getProperty("spring.profiles.active")).isEqualTo("dev");
+    }
+
+    @Test
+    void runtimeConnectionSettingsComposeFromDevNamespace() throws IOException {
         var environment = configuredEnvironment();
         var binder = Binder.get(environment);
         var datasource = binder.bind("spring.datasource", DataSourceProperties.class).get();
         assertThat(datasource.getDriverClassName()).isEqualTo("com.mysql.cj.jdbc.Driver");
-        assertThat(datasource.getUrl()).isEqualTo("jdbc:mysql://127.0.0.1:13306/config_test");
+        assertThat(datasource.getUrl())
+                .isEqualTo(
+                        "jdbc:mysql://127.0.0.1:13306/config_test"
+                                + "?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai"
+                                + "&sslMode=DISABLED&allowPublicKeyRetrieval=true");
         assertThat(datasource.getUsername()).isEqualTo("synthetic-config-user");
         assertThat(datasource.getPassword()).isEqualTo("synthetic:db#password=literal");
         assertThat(
@@ -70,7 +82,6 @@ class ApplicationConfigurationTest {
                                 .get()
                                 .getMode())
                 .isEqualTo(DatabaseInitializationMode.NEVER);
-
         var redis = binder.bind("spring.data.redis", RedisProperties.class).get();
         assertThat(redis.getHost()).isEqualTo("127.0.0.1");
         assertThat(redis.getPort()).isEqualTo(6379);
@@ -108,8 +119,9 @@ class ApplicationConfigurationTest {
         assertThat(multipart.getMaxFileSize()).isEqualTo(DataSize.ofMegabytes(25));
         assertThat(multipart.getMaxRequestSize()).isEqualTo(DataSize.ofMegabytes(26));
         assertThat(environment.getProperty("app.storage-directory")).isEqualTo("./data/books");
-        assertThat(environment.getProperty("app.admin.username")).isEqualTo("admin");
-        assertThat(environment.getProperty("app.admin.password")).isEmpty();
+        assertThat(environment.getProperty("app.admin.username")).isEqualTo("synthetic-owner");
+        assertThat(environment.getProperty("app.admin.password"))
+                .isEqualTo("synthetic:admin#password=literal");
         assertThat(environment.getProperty("management.endpoints.web.base-path")).isEqualTo("/api");
         assertThat(environment.getProperty("management.endpoints.web.path-mapping.health"))
                 .isEqualTo("ready");
@@ -124,49 +136,48 @@ class ApplicationConfigurationTest {
     }
 
     @Test
-    void environmentOverridesAreLiteralAndDoNotNeedAnotherProfile() throws IOException {
+    void devNamespaceOverridesRecomposeRuntimeSettings() throws IOException {
         var environment =
-                configuredEnvironment()
-                        .withProperty("SERVER_PORT", "18080")
-                        .withProperty("BOOK_STORAGE", "D:/private books/原件")
-                        .withProperty("ADMIN_USERNAME", "synthetic-owner")
-                        .withProperty("ADMIN_PASSWORD", "synthetic:admin#password=literal")
-                        .withProperty("REDIS_HOST", "redis.example.invalid")
-                        .withProperty("REDIS_PORT", "16379")
-                        .withProperty("REDIS_USERNAME", "synthetic-redis-user")
-                        .withProperty("REDIS_DATABASE", "5")
-                        .withProperty("REDIS_NAMESPACE", "synthetic:session")
-                        .withProperty("REDIS_SSL", "true");
-        var binder = Binder.get(environment);
-        assertThat(binder.bind("server", ServerProperties.class).get().getPort()).isEqualTo(18080);
+                yamlEnvironment()
+                        .withProperty("cloudnovel.datasource.host", "db.example.invalid")
+                        .withProperty("cloudnovel.datasource.port", "23306")
+                        .withProperty("cloudnovel.datasource.database", "override_db")
+                        .withProperty("cloudnovel.redis.host", "redis.example.invalid")
+                        .withProperty("cloudnovel.redis.port", "16379")
+                        .withProperty("cloudnovel.redis.username", "synthetic-redis-user")
+                        .withProperty("cloudnovel.redis.database", "5")
+                        .withProperty("cloudnovel.admin.username", "synthetic-owner")
+                        .withProperty("cloudnovel.storage-directory", "D:/private books/原件");
+        assertThat(environment.getProperty("spring.datasource.url"))
+                .isEqualTo(
+                        "jdbc:mysql://db.example.invalid:23306/override_db"
+                                + "?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai"
+                                + "&sslMode=DISABLED&allowPublicKeyRetrieval=true");
+        assertThat(environment.getProperty("spring.data.redis.host"))
+                .isEqualTo("redis.example.invalid");
+        assertThat(environment.getProperty("spring.data.redis.port")).isEqualTo("16379");
+        assertThat(environment.getProperty("spring.data.redis.username"))
+                .isEqualTo("synthetic-redis-user");
+        assertThat(environment.getProperty("spring.data.redis.database")).isEqualTo("5");
         assertThat(environment.getProperty("app.storage-directory"))
                 .isEqualTo("D:/private books/原件");
         assertThat(environment.getProperty("app.admin.username")).isEqualTo("synthetic-owner");
-        assertThat(environment.getProperty("app.admin.password"))
-                .isEqualTo("synthetic:admin#password=literal");
-        var redis = binder.bind("spring.data.redis", RedisProperties.class).get();
-        assertThat(redis.getHost()).isEqualTo("redis.example.invalid");
-        assertThat(redis.getPort()).isEqualTo(16379);
-        assertThat(redis.getUsername()).isEqualTo("synthetic-redis-user");
-        assertThat(redis.getDatabase()).isEqualTo(5);
-        assertThat(redis.getSsl().isEnabled()).isTrue();
-        assertThat(environment.getProperty("spring.session.redis.namespace"))
-                .isEqualTo("synthetic:session");
     }
 
     @ParameterizedTest
     @CsvSource({
-        "spring.datasource.url,DB_URL",
-        "spring.datasource.username,DB_USERNAME",
-        "spring.datasource.password,DB_PASSWORD",
-        "spring.data.redis.password,REDIS_PASSWORD"
+        // url 由 host/port/database 组合而成，首个无法解析的占位符即 host。
+        "spring.datasource.url,cloudnovel.datasource.host",
+        "spring.datasource.username,cloudnovel.datasource.username",
+        "spring.datasource.password,cloudnovel.datasource.password",
+        "spring.data.redis.password,cloudnovel.redis.password"
     })
-    void connectionCredentialsHaveNoHardcodedDefaults(String property, String variable)
+    void connectionCredentialsHaveNoHardcodedDefaults(String property, String placeholder)
             throws IOException {
         var environment = yamlEnvironment();
         assertThatThrownBy(() -> environment.getRequiredProperty(property))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(variable);
+                .hasMessageContaining(placeholder);
     }
 
     @ParameterizedTest
@@ -182,7 +193,7 @@ class ApplicationConfigurationTest {
                 .withBean(SessionRepository.class, () -> mock(SessionRepository.class))
                 .withPropertyValues(
                         "spring.config.location=classpath:/application.yml",
-                        "COOKIE_SECURE=" + secure)
+                        "server.servlet.session.cookie.secure=" + secure)
                 .run(
                         context -> {
                             assertThat(context).hasNotFailed();
@@ -212,10 +223,20 @@ class ApplicationConfigurationTest {
 
     private static MockEnvironment configuredEnvironment() throws IOException {
         return yamlEnvironment()
-                .withProperty("DB_URL", "jdbc:mysql://127.0.0.1:13306/config_test")
-                .withProperty("DB_USERNAME", "synthetic-config-user")
-                .withProperty("DB_PASSWORD", "synthetic:db#password=literal")
-                .withProperty("REDIS_PASSWORD", "synthetic:redis#password=literal");
+                .withProperty("cloudnovel.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver")
+                .withProperty("cloudnovel.datasource.host", "127.0.0.1")
+                .withProperty("cloudnovel.datasource.port", "13306")
+                .withProperty("cloudnovel.datasource.database", "config_test")
+                .withProperty("cloudnovel.datasource.username", "synthetic-config-user")
+                .withProperty("cloudnovel.datasource.password", "synthetic:db#password=literal")
+                .withProperty("cloudnovel.redis.host", "127.0.0.1")
+                .withProperty("cloudnovel.redis.port", "6379")
+                .withProperty("cloudnovel.redis.username", "")
+                .withProperty("cloudnovel.redis.password", "synthetic:redis#password=literal")
+                .withProperty("cloudnovel.redis.database", "0")
+                .withProperty("cloudnovel.admin.username", "synthetic-owner")
+                .withProperty("cloudnovel.admin.password", "synthetic:admin#password=literal")
+                .withProperty("cloudnovel.storage-directory", "./data/books");
     }
 
     private static MockEnvironment yamlEnvironment() throws IOException {
