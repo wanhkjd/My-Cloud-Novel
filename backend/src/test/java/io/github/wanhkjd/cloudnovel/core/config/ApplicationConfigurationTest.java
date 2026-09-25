@@ -2,7 +2,6 @@ package io.github.wanhkjd.cloudnovel.core.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -10,31 +9,18 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mybatis.spring.boot.autoconfigure.MybatisProperties;
-import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
-import org.springframework.boot.autoconfigure.session.SessionAutoConfiguration;
-import org.springframework.boot.autoconfigure.session.SessionProperties;
 import org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
-import org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.boot.sql.init.DatabaseInitializationMode;
-import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
-import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.http.HttpHeaders;
 import org.springframework.mock.env.MockEnvironment;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.session.SessionRepository;
-import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.util.unit.DataSize;
 
 /**
@@ -82,25 +68,12 @@ class ApplicationConfigurationTest {
                                 .get()
                                 .getMode())
                 .isEqualTo(DatabaseInitializationMode.NEVER);
-        var redis = binder.bind("spring.data.redis", RedisProperties.class).get();
-        assertThat(redis.getHost()).isEqualTo("127.0.0.1");
-        assertThat(redis.getPort()).isEqualTo(6379);
-        assertThat(redis.getDatabase()).isZero();
-        assertThat(redis.getUsername()).isEmpty();
-        assertThat(redis.getPassword()).isEqualTo("synthetic:redis#password=literal");
-        assertThat(redis.getUrl()).isNull();
-        assertThat(redis.getSsl().isEnabled()).isFalse();
-        assertThat(redis.getTimeout()).isEqualTo(Duration.ofSeconds(3));
-        assertThat(redis.getConnectTimeout()).isEqualTo(Duration.ofSeconds(3));
-        assertThat(binder.bind("spring.session", SessionProperties.class).get().getTimeout())
-                .isEqualTo(Duration.ofHours(12));
-        assertThat(environment.getProperty("spring.session.redis.namespace"))
-                .isEqualTo("cloud-novel:session");
-        assertThat(environment.getProperty("spring.session.redis.repository-type"))
-                .isEqualTo("default");
-        assertThat(environment.getProperty("spring.session.redis.configure-action"))
-                .isEqualTo("none");
-        assertThat(environment.containsProperty("server.servlet.session.timeout")).isFalse();
+        // 会话超时改由 Servlet 容器承载；运行期不应再出现 Redis / Spring Session 属性。
+        var server = binder.bind("server", ServerProperties.class).get();
+        assertThat(server.getServlet().getSession().getTimeout()).isEqualTo(Duration.ofHours(12));
+        assertThat(environment.getProperty("spring.data.redis.host")).isNull();
+        assertThat(environment.containsProperty("spring.session.timeout")).isFalse();
+        assertThat(environment.containsProperty("spring.session.redis.namespace")).isFalse();
 
         var mybatis = binder.bind("mybatis", MybatisProperties.class).get();
         assertThat(mybatis.getMapperLocations()).containsExactly("classpath:mapper/*.xml");
@@ -142,10 +115,6 @@ class ApplicationConfigurationTest {
                         .withProperty("cloudnovel.datasource.host", "db.example.invalid")
                         .withProperty("cloudnovel.datasource.port", "23306")
                         .withProperty("cloudnovel.datasource.database", "override_db")
-                        .withProperty("cloudnovel.redis.host", "redis.example.invalid")
-                        .withProperty("cloudnovel.redis.port", "16379")
-                        .withProperty("cloudnovel.redis.username", "synthetic-redis-user")
-                        .withProperty("cloudnovel.redis.database", "5")
                         .withProperty("cloudnovel.admin.username", "synthetic-owner")
                         .withProperty("cloudnovel.storage-directory", "D:/private books/原件");
         assertThat(environment.getProperty("spring.datasource.url"))
@@ -153,12 +122,6 @@ class ApplicationConfigurationTest {
                         "jdbc:mysql://db.example.invalid:23306/override_db"
                                 + "?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai"
                                 + "&sslMode=DISABLED&allowPublicKeyRetrieval=true");
-        assertThat(environment.getProperty("spring.data.redis.host"))
-                .isEqualTo("redis.example.invalid");
-        assertThat(environment.getProperty("spring.data.redis.port")).isEqualTo("16379");
-        assertThat(environment.getProperty("spring.data.redis.username"))
-                .isEqualTo("synthetic-redis-user");
-        assertThat(environment.getProperty("spring.data.redis.database")).isEqualTo("5");
         assertThat(environment.getProperty("app.storage-directory"))
                 .isEqualTo("D:/private books/原件");
         assertThat(environment.getProperty("app.admin.username")).isEqualTo("synthetic-owner");
@@ -169,8 +132,7 @@ class ApplicationConfigurationTest {
         // url 由 host/port/database 组合而成，首个无法解析的占位符即 host。
         "spring.datasource.url,cloudnovel.datasource.host",
         "spring.datasource.username,cloudnovel.datasource.username",
-        "spring.datasource.password,cloudnovel.datasource.password",
-        "spring.data.redis.password,cloudnovel.redis.password"
+        "spring.datasource.password,cloudnovel.datasource.password"
     })
     void connectionCredentialsHaveNoHardcodedDefaults(String property, String placeholder)
             throws IOException {
@@ -180,45 +142,18 @@ class ApplicationConfigurationTest {
                 .hasMessageContaining(placeholder);
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void bootCreatesTheSessionCookieDirectlyFromYaml(boolean secure) {
-        // 只替代仓库接口，不启动 Redis；CookieSerializer 必须来自 Boot 自动配置而非自定义 Bean。
-        new WebApplicationContextRunner()
-                .withInitializer(new ConfigDataApplicationContextInitializer())
-                .withConfiguration(
-                        AutoConfigurations.of(
-                                ServletWebServerFactoryAutoConfiguration.class,
-                                SessionAutoConfiguration.class))
-                .withBean(SessionRepository.class, () -> mock(SessionRepository.class))
-                .withPropertyValues(
-                        "spring.config.location=classpath:/application.yml",
-                        "server.servlet.session.cookie.secure=" + secure)
-                .run(
-                        context -> {
-                            assertThat(context).hasNotFailed();
-                            assertThat(context).hasSingleBean(CookieSerializer.class);
-                            var response = new MockHttpServletResponse();
-                            context.getBean(CookieSerializer.class)
-                                    .writeCookieValue(
-                                            new CookieSerializer.CookieValue(
-                                                    new MockHttpServletRequest(),
-                                                    response,
-                                                    "synthetic-session-id"));
-                            String cookie = response.getHeader(HttpHeaders.SET_COOKIE);
-                            assertThat(cookie)
-                                    .contains(
-                                            "CLOUDNOVEL_SESSION=",
-                                            "Path=/",
-                                            "HttpOnly",
-                                            "SameSite=Lax")
-                                    .doesNotContain("JSESSIONID");
-                            if (secure) {
-                                assertThat(cookie).contains("Secure");
-                            } else {
-                                assertThat(cookie).doesNotContain("Secure");
-                            }
-                        });
+    @Test
+    void sessionCookieAndTimeoutBindFromYamlWithoutSpringSession() throws IOException {
+        var server =
+                Binder.get(configuredEnvironment()).bind("server", ServerProperties.class).get();
+        var cookie = server.getServlet().getSession().getCookie();
+        assertThat(cookie.getName()).isEqualTo("CLOUDNOVEL_SESSION");
+        assertThat(cookie.getPath()).isEqualTo("/");
+        assertThat(cookie.getHttpOnly()).isTrue();
+        assertThat(cookie.getSameSite())
+                .isEqualTo(org.springframework.boot.web.server.Cookie.SameSite.LAX);
+        assertThat(cookie.getSecure()).isFalse();
+        assertThat(server.getServlet().getSession().getTimeout()).isEqualTo(Duration.ofHours(12));
     }
 
     private static MockEnvironment configuredEnvironment() throws IOException {
@@ -229,11 +164,6 @@ class ApplicationConfigurationTest {
                 .withProperty("cloudnovel.datasource.database", "config_test")
                 .withProperty("cloudnovel.datasource.username", "synthetic-config-user")
                 .withProperty("cloudnovel.datasource.password", "synthetic:db#password=literal")
-                .withProperty("cloudnovel.redis.host", "127.0.0.1")
-                .withProperty("cloudnovel.redis.port", "6379")
-                .withProperty("cloudnovel.redis.username", "")
-                .withProperty("cloudnovel.redis.password", "synthetic:redis#password=literal")
-                .withProperty("cloudnovel.redis.database", "0")
                 .withProperty("cloudnovel.admin.username", "synthetic-owner")
                 .withProperty("cloudnovel.admin.password", "synthetic:admin#password=literal")
                 .withProperty("cloudnovel.storage-directory", "./data/books");

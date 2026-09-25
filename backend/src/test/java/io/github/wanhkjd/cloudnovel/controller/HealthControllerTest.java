@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-/** 存活端点迁移后保持原 HTTP 契约，且无需初始化 MySQL、Redis 或认证服务。 */
+/** 存活端点迁移后保持原 HTTP 契约，且无需初始化 MySQL 或认证服务。 */
 class HealthControllerTest {
     @Test
     void livenessIsIndependentOfAuthenticationAndDatabases() throws Exception {

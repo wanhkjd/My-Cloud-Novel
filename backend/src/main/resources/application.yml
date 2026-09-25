@@ -3,6 +3,7 @@ server:
   port: 8080
   servlet:
     session:
+      timeout: 12h
       cookie:
         name: CLOUDNOVEL_SESSION
         path: /
@@ -30,30 +31,12 @@ spring:
   sql:
     init:
       mode: never
-  # Redis 只保存管理员 HTTP 会话 / CSRF，不保存唯一的业务数据。
-  data:
-    redis:
-      host: ${cloudnovel.redis.host}
-      port: ${cloudnovel.redis.port}
-      username: ${cloudnovel.redis.username}
-      password: ${cloudnovel.redis.password}
-      database: ${cloudnovel.redis.database}
-      ssl:
-        enabled: false
-      connect-timeout: 3s
-      timeout: 3s
-  session:
-    timeout: 12h
-    redis:
-      repository-type: default
-      namespace: cloud-novel:session
-      configure-action: none
   servlet:
     multipart:
       max-file-size: 25MB
       max-request-size: 26MB
 
-# /api/health 仅检查进程；/api/ready 检查真实 MySQL / Redis，不暴露连接详情。
+# /api/health 仅检查进程；/api/ready 检查真实 MySQL，不暴露连接详情。
 management:
   endpoints:
     web:

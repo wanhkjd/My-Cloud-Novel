@@ -11,7 +11,7 @@ public class HealthController {
     public HealthController() {}
 
     /**
-     * 检查服务进程是否能响应请求，不触发数据库或 Redis 连接。
+     * 检查服务进程是否能响应请求，不触发数据库连接。
      *
      * @return 固定存活标识
      */

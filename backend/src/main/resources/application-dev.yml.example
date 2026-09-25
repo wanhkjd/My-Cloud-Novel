@@ -8,12 +8,6 @@ cloudnovel:
     database: cloud_novel
     username: cloud_novel_app
     password: replace-with-private-database-password
-  redis:
-    host: 127.0.0.1
-    port: 6379
-    username: ""
-    password: replace-with-private-redis-password
-    database: 0
   admin:
     username: admin
     password: replace-with-at-least-12-character-admin-password

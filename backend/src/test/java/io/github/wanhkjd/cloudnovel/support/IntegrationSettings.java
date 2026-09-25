@@ -3,12 +3,12 @@ package io.github.wanhkjd.cloudnovel.support;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 仅供集成测试使用的连接配置：固定测试库和 Redis DB，绝不继承业务库凭据。 */
+/** 仅供集成测试使用的连接配置：固定测试库，绝不继承业务库凭据。 */
 public final class IntegrationSettings {
     private IntegrationSettings() {}
 
     public static Map<String, Object> properties(
-            Map<String, String> environment, String storageDirectory, String namespace) {
+            Map<String, String> environment, String storageDirectory) {
         String host = host(environment.getOrDefault("TEST_MYSQL_HOST", "127.0.0.1"));
         int port = port(environment.getOrDefault("TEST_MYSQL_PORT", "3306"));
         String username = environment.getOrDefault("TEST_DB_USERNAME", "cloud_novel_test");
@@ -20,10 +20,6 @@ public final class IntegrationSettings {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException(
                     "Set TEST_DB_PASSWORD for the dedicated MySQL test database; no database fallback is available.");
-        }
-        if (!namespace.matches("cloud-novel:it:[0-9a-f-]{36}")) {
-            throw new IllegalArgumentException(
-                    "Integration Redis namespace must be unique to this run.");
         }
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver");
@@ -37,19 +33,6 @@ public final class IntegrationSettings {
         properties.put("spring.datasource.username", username);
         properties.put("spring.datasource.password", password);
         properties.put("spring.sql.init.mode", "never");
-        properties.put(
-                "spring.data.redis.host",
-                host(environment.getOrDefault("TEST_REDIS_HOST", "127.0.0.1")));
-        properties.put(
-                "spring.data.redis.port",
-                port(environment.getOrDefault("TEST_REDIS_PORT", "6379")));
-        properties.put(
-                "spring.data.redis.username", environment.getOrDefault("TEST_REDIS_USERNAME", ""));
-        properties.put(
-                "spring.data.redis.password", environment.getOrDefault("TEST_REDIS_PASSWORD", ""));
-        properties.put("spring.data.redis.ssl.enabled", "false");
-        properties.put("spring.data.redis.database", 15);
-        properties.put("spring.session.redis.namespace", namespace);
         properties.put("server.servlet.session.cookie.secure", false);
         properties.put("app.admin.username", "admin");
         properties.put("app.admin.password", "only-for-isolated-tests-123");

@@ -47,7 +47,7 @@ public class SecurityConfig {
     /**
      * 配置 URL 授权、JSON 登录结果和安全退出；CSRF 保持框架默认启用。
      *
-     * <p>退出时由 Spring Session 失效会话并按 YAML 中的设置清除 Cookie，不另设旧会话 Cookie。
+     * <p>退出时由 Servlet 容器（Tomcat {@code HttpSession}）失效会话并按 YAML 中的设置清除 Cookie，不另设旧会话 Cookie。
      *
      * @param http Spring Security 配置入口
      * @param json 统一 JSON 序列化器
