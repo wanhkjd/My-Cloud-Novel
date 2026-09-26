@@ -279,6 +279,41 @@ class MapperIT extends DatabaseIntegrationTest {
         assertThat(books.findAll(true)).extracting(BookEntity::id).containsExactly(low, high);
     }
 
+    @Test
+    void updateCoverSetsThenClearsCoverPathIndependently() {
+        String id = seedBook().id();
+        assertThat(books.updateCover(id, "covers/" + id + ".jpg")).isEqualTo(1);
+        assertThat(books.findById(id).orElseThrow().coverPath()).isEqualTo("covers/" + id + ".jpg");
+        assertThat(books.updateCover(id, null)).isEqualTo(1);
+        assertThat(books.findById(id).orElseThrow().coverPath()).isNull();
+    }
+
+    @Test
+    void updateMetadataNeverTouchesCoverPath() {
+        BookEntity seeded = seedBook();
+        books.updateCover(seeded.id(), "covers/" + seeded.id() + ".png");
+        BookEntity edit =
+                new BookEntity(
+                        seeded.id(),
+                        "改名后",
+                        "作者",
+                        "新简介",
+                        seeded.encoding(),
+                        seeded.chapterCount(),
+                        seeded.volumeCount(),
+                        seeded.characterCount(),
+                        seeded.preface(),
+                        seeded.sha256(),
+                        true,
+                        false,
+                        seeded.createdAt(),
+                        null,
+                        null);
+        assertThat(books.updateMetadata(edit)).isEqualTo(1);
+        assertThat(books.findById(seeded.id()).orElseThrow().coverPath())
+                .isEqualTo("covers/" + seeded.id() + ".png");
+    }
+
     private BookEntity seedBook() {
         BookEntity book =
                 new BookEntity(

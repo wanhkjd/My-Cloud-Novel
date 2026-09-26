@@ -30,5 +30,8 @@
                      timeline_date = #{timelineDate}
     WHERE id = #{id}
   </update>
+  <update id="updateCover">
+    UPDATE books SET cover_path = #{coverPath} WHERE id = #{id}
+  </update>
   <delete id="deleteById">DELETE FROM books WHERE id = #{id}</delete>
 </mapper>

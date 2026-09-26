@@ -43,6 +43,15 @@ public interface BookMapper {
     int updateMetadata(BookEntity book);
 
     /**
+     * 仅更新封面对象键，与元数据编辑解耦，避免编辑书目时误清空封面。
+     *
+     * @param id 书籍 UUID
+     * @param coverPath 封面对象键，或 null 表示清除封面
+     * @return 受影响行数
+     */
+    int updateCover(@Param("id") String id, @Param("coverPath") String coverPath);
+
+    /**
      * 删除书籍；关联数据通过外键级联删除。
      *
      * @param id 书籍 UUID
