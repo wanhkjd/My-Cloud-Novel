@@ -1,5 +1,6 @@
 package io.github.wanhkjd.cloudnovel.service;
 
+import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
 import io.github.wanhkjd.cloudnovel.dto.req.BookEditRequest;
 import io.github.wanhkjd.cloudnovel.dto.resp.BookView;
 import io.github.wanhkjd.cloudnovel.dto.resp.ChapterSummaryView;
@@ -7,6 +8,7 @@ import io.github.wanhkjd.cloudnovel.dto.resp.ChapterView;
 import io.github.wanhkjd.cloudnovel.dto.resp.DownloadFile;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 /** 书库业务接口；调用方传入可信身份，所有正文入口统一执行可读性校验。 */
 public interface LibraryService {
@@ -92,6 +94,35 @@ public interface LibraryService {
      * @param id 书籍 UUID
      */
     void deleteBook(String id);
+
+    /**
+     * 上传封面：按字节魔数判定真实类型（拒非 JPEG/PNG/WebP），限 2 MiB，覆盖式落盘并记键。
+     *
+     * @param id 书籍 UUID
+     * @param bytes 上传的图片字节
+     * @return 更新后的书籍（{@code hasCover} 为真）
+     * @throws IOException 封面写入失败
+     * @throws IllegalArgumentException 类型不被允许或超过 2 MiB
+     */
+    BookView setCover(String id, byte[] bytes) throws IOException;
+
+    /**
+     * 移除封面：删除封面文件并清空封面键，重复调用安全。
+     *
+     * @param id 书籍 UUID
+     * @throws IOException 封面删除失败
+     */
+    void removeCover(String id) throws IOException;
+
+    /**
+     * 读取封面字节；书籍缺失、对当前身份不可见或无封面时返回空，便于控制器回退 404。
+     *
+     * @param id 书籍 UUID
+     * @param owner 是否为管理员
+     * @return 封面字节与内容类型，或 {@link Optional#empty()}
+     * @throws IOException 封面读取发生 I/O 故障
+     */
+    Optional<StoredImage> readCover(String id, boolean owner) throws IOException;
 
     /**
      * 校验可读性后下载未经转码的原件。

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import io.github.wanhkjd.cloudnovel.core.parser.TxtNovelParser;
+import io.github.wanhkjd.cloudnovel.core.storage.LocalCoverImageStorage;
 import io.github.wanhkjd.cloudnovel.core.storage.LocalNovelFileStorage;
 import io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.dao.mapper.BookMapper;
@@ -54,6 +55,7 @@ class LibraryTransactionIT extends DatabaseIntegrationTest {
                         failingChapters,
                         new TxtNovelParser(),
                         new LocalNovelFileStorage(directory.toString()),
+                        new LocalCoverImageStorage(directory.toString()),
                         transactions,
                         Clock.systemUTC());
         StringBuilder text = new StringBuilder();

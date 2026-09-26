@@ -2,7 +2,10 @@ package io.github.wanhkjd.cloudnovel.service.impl;
 
 import io.github.wanhkjd.cloudnovel.core.exception.BusinessException;
 import io.github.wanhkjd.cloudnovel.core.parser.TxtNovelParser;
+import io.github.wanhkjd.cloudnovel.core.storage.CoverFormat;
+import io.github.wanhkjd.cloudnovel.core.storage.CoverImageStorage;
 import io.github.wanhkjd.cloudnovel.core.storage.NovelFileStorage;
+import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
 import io.github.wanhkjd.cloudnovel.dao.entity.BookEntity;
 import io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.dao.mapper.BookMapper;
@@ -20,6 +23,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +41,9 @@ public class LibraryServiceImpl implements LibraryService {
     /** 每次 INSERT 的章节上限，避免生成过大的批量 SQL。 */
     private static final int CHAPTER_BATCH_SIZE = 200;
 
+    /** 封面体积上限：2 MiB，独立于 TXT 的 multipart 上限。 */
+    private static final long MAX_COVER_BYTES = 2L * 1024 * 1024;
+
     /** 仅记录基础设施故障，不记录小说正文或密码。 */
     private static final Logger LOG = LoggerFactory.getLogger(LibraryServiceImpl.class);
 
@@ -52,6 +59,9 @@ public class LibraryServiceImpl implements LibraryService {
     /** 私有原件存储，封装路径规则。 */
     private final NovelFileStorage storage;
 
+    /** 封面图片存储，与原件存储分离。 */
+    private final CoverImageStorage coverStorage;
+
     /** 保证所有数据库批次共同提交的事务模板。 */
     private final TransactionTemplate transactions;
 
@@ -65,6 +75,7 @@ public class LibraryServiceImpl implements LibraryService {
      * @param chapterMapper 章节 Mapper
      * @param parser TXT 解析器
      * @param storage 私有原件存储
+     * @param coverStorage 封面图片存储
      * @param transactions 事务模板
      * @param clock 服务器时钟
      */
@@ -73,12 +84,14 @@ public class LibraryServiceImpl implements LibraryService {
             ChapterMapper chapterMapper,
             TxtNovelParser parser,
             NovelFileStorage storage,
+            CoverImageStorage coverStorage,
             TransactionTemplate transactions,
             Clock clock) {
         this.bookMapper = bookMapper;
         this.chapterMapper = chapterMapper;
         this.parser = parser;
         this.storage = storage;
+        this.coverStorage = coverStorage;
         this.transactions = transactions;
         this.clock = clock;
     }
@@ -265,6 +278,11 @@ public class LibraryServiceImpl implements LibraryService {
         } catch (IOException error) {
             LOG.warn("Private file cleanup failed for book {}", id, error);
         }
+        try {
+            coverStorage.delete(id);
+        } catch (IOException error) {
+            LOG.warn("Cover cleanup failed for book {}", id, error);
+        }
     }
 
     @Override
@@ -275,6 +293,41 @@ public class LibraryServiceImpl implements LibraryService {
         } catch (NoSuchFileException error) {
             throw unavailable();
         }
+    }
+
+    @Override
+    public BookView setCover(String id, byte[] bytes) throws IOException {
+        requireBook(id); // 未知书籍先 404，避免写出孤儿封面文件
+        CoverFormat format =
+                CoverFormat.detect(bytes)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("封面必须是 JPEG、PNG 或 WebP 图片。"));
+        if (bytes.length > MAX_COVER_BYTES) {
+            throw new IllegalArgumentException("封面大小不能超过 2 MiB。");
+        }
+        coverStorage.write(id, format, bytes);
+        bookMapper.updateCover(id, "covers/" + id + "." + format.extension());
+        return toView(requireBook(id), true, true);
+    }
+
+    @Override
+    public void removeCover(String id) throws IOException {
+        requireBook(id);
+        coverStorage.delete(id);
+        bookMapper.updateCover(id, null);
+    }
+
+    @Override
+    public Optional<StoredImage> readCover(String id, boolean owner) throws IOException {
+        Optional<BookEntity> found = bookMapper.findById(id);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        BookEntity book = found.get();
+        if ((!owner && !book.catalogPublished()) || book.coverPath() == null) {
+            return Optional.empty();
+        }
+        return coverStorage.read(id);
     }
 
     private BookEntity requireBook(String id) {

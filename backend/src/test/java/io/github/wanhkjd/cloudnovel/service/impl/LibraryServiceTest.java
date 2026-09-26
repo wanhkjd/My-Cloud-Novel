@@ -7,7 +7,10 @@ import static org.mockito.Mockito.*;
 
 import io.github.wanhkjd.cloudnovel.core.exception.BusinessException;
 import io.github.wanhkjd.cloudnovel.core.parser.TxtNovelParser;
+import io.github.wanhkjd.cloudnovel.core.storage.CoverFormat;
+import io.github.wanhkjd.cloudnovel.core.storage.CoverImageStorage;
 import io.github.wanhkjd.cloudnovel.core.storage.NovelFileStorage;
+import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
 import io.github.wanhkjd.cloudnovel.dao.entity.BookEntity;
 import io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.dao.mapper.BookMapper;
@@ -36,6 +39,7 @@ class LibraryServiceTest {
     BookMapper books = mock(BookMapper.class);
     ChapterMapper chapters = mock(ChapterMapper.class);
     NovelFileStorage storage = mock(NovelFileStorage.class);
+    CoverImageStorage coverStorage = mock(CoverImageStorage.class);
     PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
     LibraryService service;
     String id = UUID.randomUUID().toString();
@@ -49,6 +53,7 @@ class LibraryServiceTest {
                         chapters,
                         new TxtNovelParser(),
                         storage,
+                        coverStorage,
                         new TransactionTemplate(manager),
                         Clock.fixed(Instant.parse("2026-09-13T00:00:00Z"), ZoneOffset.UTC));
     }
@@ -156,11 +161,12 @@ class LibraryServiceTest {
         ordered.verify(manager).getTransaction(any());
         ordered.verify(manager).commit(any());
         ordered.verify(storage).delete(id);
-        reset(storage);
+        verify(coverStorage).delete(id);
+        reset(storage, coverStorage);
         doThrow(new UnexpectedRollbackException("test commit failure")).when(manager).commit(any());
         assertThatThrownBy(() -> service.deleteBook(id))
                 .isInstanceOf(UnexpectedRollbackException.class);
-        verifyNoInteractions(storage);
+        verifyNoInteractions(storage, coverStorage);
     }
 
     @Test
@@ -216,8 +222,93 @@ class LibraryServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void setCoverDetectsFormatWritesFileAndExposesHasCoverWithoutPath() throws Exception {
+        byte[] png = {
+            (byte) 0x89,
+            'P',
+            'N',
+            'G',
+            (byte) 0x0D,
+            (byte) 0x0A,
+            (byte) 0x1A,
+            (byte) 0x0A,
+            0,
+            0,
+            0,
+            0
+        };
+        when(books.findById(id))
+                .thenReturn(
+                        Optional.of(bookWith(true, false, null, null)),
+                        Optional.of(bookWith(true, false, null, "covers/" + id + ".png")));
+        var view = service.setCover(id, png);
+        verify(coverStorage).write(id, CoverFormat.PNG, png);
+        verify(books).updateCover(id, "covers/" + id + ".png");
+        assertThat(view.hasCover()).isTrue();
+    }
+
+    @Test
+    void setCoverRejectsDisallowedTypeBeforeTouchingStorage() {
+        when(books.findById(id)).thenReturn(Optional.of(bookWith(true, false, null, null)));
+        assertThatThrownBy(
+                        () -> service.setCover(id, "<svg xmlns=".getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(coverStorage);
+        verify(books, never()).updateCover(any(), any());
+    }
+
+    @Test
+    void setCoverRejectsCoverLargerThanTwoMebibytes() throws Exception {
+        byte[] oversize = new byte[2 * 1024 * 1024 + 1];
+        byte[] pngMagic = {
+            (byte) 0x89, 'P', 'N', 'G', (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A
+        };
+        System.arraycopy(pngMagic, 0, oversize, 0, pngMagic.length);
+        when(books.findById(id)).thenReturn(Optional.of(bookWith(true, false, null, null)));
+        assertThatThrownBy(() -> service.setCover(id, oversize))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(coverStorage);
+        verify(books, never()).updateCover(any(), any());
+    }
+
     private BookEntity book(boolean catalogue, boolean text) {
         return bookWith(catalogue, text, null, null);
+    }
+
+    @Test
+    void removeCoverClearsPathAndDeletesFileIdempotently() throws Exception {
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(true, false, null, "covers/" + id + ".jpg")));
+        service.removeCover(id);
+        service.removeCover(id);
+        verify(coverStorage, times(2)).delete(id);
+        verify(books, times(2)).updateCover(id, null);
+    }
+
+    @Test
+    void readCoverHidesMissingUnpublishedOrCoverlessBooks() throws Exception {
+        when(books.findById(id)).thenReturn(Optional.empty());
+        assertThat(service.readCover(id, false)).isEmpty();
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(false, false, null, "covers/" + id + ".png")));
+        assertThat(service.readCover(id, false)).isEmpty();
+        when(books.findById(id)).thenReturn(Optional.of(bookWith(true, false, null, null)));
+        assertThat(service.readCover(id, true)).isEmpty();
+        verify(coverStorage, never()).read(any());
+    }
+
+    @Test
+    void readCoverStreamsForOwnerOrPublishedBookWithCover() throws Exception {
+        StoredImage stored = new StoredImage(new byte[] {1, 2, 3}, "image/jpeg");
+        when(coverStorage.read(id)).thenReturn(Optional.of(stored));
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(true, false, null, "covers/" + id + ".jpg")));
+        assertThat(service.readCover(id, false).orElseThrow().contentType())
+                .isEqualTo("image/jpeg");
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(false, false, null, "covers/" + id + ".jpg")));
+        assertThat(service.readCover(id, true)).contains(stored);
     }
 
     private BookEntity bookWith(
