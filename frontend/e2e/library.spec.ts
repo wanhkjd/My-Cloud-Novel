@@ -11,6 +11,19 @@ async function expectAccessible(page: Page) {
   ).toEqual([]);
 }
 
+// The reader no longer shows a "第 N 段" position readout (reading telemetry is hidden), so a
+// restored position is asserted structurally: paragraph 3 (index 2) is scrolled to the reading
+// line. `top <= 150` is exactly how the reader marks the current paragraph (see markPosition()).
+async function expectRestoredToParagraph3(page: Page) {
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () => document.getElementById('paragraph-2')?.getBoundingClientRect().top ?? 1e9,
+      ),
+    )
+    .toBeLessThanOrEqual(150);
+}
+
 const text =
   '作者：书房测试员\n第一卷 来信\n第一章 清晨\n' +
   Array.from(
@@ -109,15 +122,11 @@ test('owner imports a draft, restores a bookmark, and explicitly publishes to vi
   await page.getByRole('link', { name: '开始阅读' }).click();
   await expect(page.locator('.chapter-heading h1')).toHaveText('第一章 清晨');
   await expectAccessible(page);
-  await expect
-    .poll(async () =>
-      Number(
-        (await page.getByRole('button', { name: '暂停阅读计时' }).innerText()).match(
-          /(\d+) 秒/,
-        )?.[1] ?? 0,
-      ),
-    )
-    .toBeGreaterThanOrEqual(2);
+  // The on-screen reading timer was removed with the reading telemetry; reading time now
+  // accrues only in the background ReadingClock. Dwell a couple of seconds while the chapter is
+  // focused so whole seconds accrue and flush on the next navigation — the accrued total is
+  // asserted end-to-end via /api/me/stats near the end of this test.
+  await page.waitForTimeout(2500);
   await page.getByRole('button', { name: '添加第3段书签', exact: true }).click();
   await expectAccessible(page);
   await page.getByLabel('此刻的感想').fill('记下这束清晨的光。');
@@ -132,12 +141,12 @@ test('owner imports a draft, restores a bookmark, and explicitly publishes to vi
   await page.getByRole('button', { name: '我的书签 1' }).click();
   await page.getByRole('button', { name: /记下这束清晨的光/ }).click();
   await expect(page.locator('.chapter-heading h1')).toHaveText('第一章 清晨');
-  await expect(page.locator('.reader-save-status')).toContainText('第 3 段');
+  await expectRestoredToParagraph3(page);
   await page.getByRole('link', { name: '原创验收读本', exact: true }).click();
   const progress = await page.request.get('/api/me/progress/' + book.id);
   expect((await progress.json()).paragraphIndex).toBe(2);
   await page.getByRole('link', { name: '继续阅读', exact: true }).click();
-  await expect(page.locator('.reader-save-status')).toContainText('第 3 段');
+  await expectRestoredToParagraph3(page);
   await page.getByRole('link', { name: '原创验收读本', exact: true }).click();
   await page.getByRole('link', { name: '管理书房', exact: true }).click();
   await page.getByRole('button', { name: '编辑原创验收读本', exact: true }).click();
@@ -207,10 +216,10 @@ test('mobile visitor reads public text, keeps local notes, and never writes the 
   await page.getByRole('button', { name: '打开目录' }).click();
   await page.getByRole('button', { name: '我的书签 1' }).click();
   await page.getByRole('button', { name: /访客自己的小记/ }).click();
-  await expect(page.locator('.reader-save-status')).toContainText('第 3 段');
+  await expectRestoredToParagraph3(page);
   await page.getByRole('link', { name: '手机验收读本', exact: true }).click();
   await page.getByRole('link', { name: '继续阅读', exact: true }).click();
-  await expect(page.locator('.reader-save-status')).toContainText('第 3 段');
+  await expectRestoredToParagraph3(page);
   await page.reload();
   await expect(page.locator('.reader-shell')).toHaveClass(/night/);
   await expect(page.getByRole('button', { name: '编辑第3段书签', exact: true })).toBeVisible();
