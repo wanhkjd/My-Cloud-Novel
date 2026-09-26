@@ -1,10 +1,10 @@
 package io.github.wanhkjd.cloudnovel.service;
 
-import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
 import io.github.wanhkjd.cloudnovel.dto.req.BookEditRequest;
 import io.github.wanhkjd.cloudnovel.dto.resp.BookView;
 import io.github.wanhkjd.cloudnovel.dto.resp.ChapterSummaryView;
 import io.github.wanhkjd.cloudnovel.dto.resp.ChapterView;
+import io.github.wanhkjd.cloudnovel.dto.resp.CoverImage;
 import io.github.wanhkjd.cloudnovel.dto.resp.DownloadFile;
 import java.io.IOException;
 import java.util.List;
@@ -122,7 +122,7 @@ public interface LibraryService {
      * @return 封面字节与内容类型，或 {@link Optional#empty()}
      * @throws IOException 封面读取发生 I/O 故障
      */
-    Optional<StoredImage> readCover(String id, boolean owner) throws IOException;
+    Optional<CoverImage> readCover(String id, boolean owner) throws IOException;
 
     /**
      * 校验可读性后下载未经转码的原件。

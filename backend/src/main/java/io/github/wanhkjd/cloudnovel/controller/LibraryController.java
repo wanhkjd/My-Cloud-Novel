@@ -135,6 +135,36 @@ public class LibraryController {
     }
 
     /**
+     * 流式返回指定书籍的封面，可见性同 {@code getBook}（主人或已公开目录）。
+     *
+     * <p>未知或非法标识、无封面、以及未公开书籍对访客，均返回 {@code 404} 且带 {@code nosniff}， 从不返回 {@code 500}；命中时按扩展名给出
+     * {@code Content-Type} 并允许短期公共缓存。
+     *
+     * @param id 目标书籍标识
+     * @param authentication 当前认证信息，用于判定是否为主人
+     * @return 图片字节（{@code 200}）或空体（{@code 404}）
+     * @throws IOException 读取封面文件失败时抛出
+     */
+    @GetMapping("/{id}/cover")
+    public ResponseEntity<byte[]> cover(@PathVariable String id, Authentication authentication)
+            throws IOException {
+        return libraryService
+                .readCover(id, CurrentUser.isOwner(authentication))
+                .map(
+                        image ->
+                                ResponseEntity.ok()
+                                        .header(HttpHeaders.CONTENT_TYPE, image.contentType())
+                                        .header("X-Content-Type-Options", "nosniff")
+                                        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300")
+                                        .body(image.bytes()))
+                .orElseGet(
+                        () ->
+                                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                        .header("X-Content-Type-Options", "nosniff")
+                                        .<byte[]>build());
+    }
+
+    /**
      * 修改书目与公开设置。
      *
      * @param id 书籍 UUID

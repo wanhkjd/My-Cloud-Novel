@@ -5,7 +5,6 @@ import io.github.wanhkjd.cloudnovel.core.parser.TxtNovelParser;
 import io.github.wanhkjd.cloudnovel.core.storage.CoverFormat;
 import io.github.wanhkjd.cloudnovel.core.storage.CoverImageStorage;
 import io.github.wanhkjd.cloudnovel.core.storage.NovelFileStorage;
-import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
 import io.github.wanhkjd.cloudnovel.dao.entity.BookEntity;
 import io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.dao.mapper.BookMapper;
@@ -14,6 +13,7 @@ import io.github.wanhkjd.cloudnovel.dto.req.BookEditRequest;
 import io.github.wanhkjd.cloudnovel.dto.resp.BookView;
 import io.github.wanhkjd.cloudnovel.dto.resp.ChapterSummaryView;
 import io.github.wanhkjd.cloudnovel.dto.resp.ChapterView;
+import io.github.wanhkjd.cloudnovel.dto.resp.CoverImage;
 import io.github.wanhkjd.cloudnovel.dto.resp.DownloadFile;
 import io.github.wanhkjd.cloudnovel.service.LibraryService;
 import java.io.IOException;
@@ -318,7 +318,7 @@ public class LibraryServiceImpl implements LibraryService {
     }
 
     @Override
-    public Optional<StoredImage> readCover(String id, boolean owner) throws IOException {
+    public Optional<CoverImage> readCover(String id, boolean owner) throws IOException {
         Optional<BookEntity> found = bookMapper.findById(id);
         if (found.isEmpty()) {
             return Optional.empty();
@@ -327,7 +327,9 @@ public class LibraryServiceImpl implements LibraryService {
         if ((!owner && !book.catalogPublished()) || book.coverPath() == null) {
             return Optional.empty();
         }
-        return coverStorage.read(id);
+        return coverStorage
+                .read(id)
+                .map(image -> new CoverImage(image.bytes(), image.contentType()));
     }
 
     private BookEntity requireBook(String id) {

@@ -308,7 +308,7 @@ class LibraryServiceTest {
                 .isEqualTo("image/jpeg");
         when(books.findById(id))
                 .thenReturn(Optional.of(bookWith(false, false, null, "covers/" + id + ".jpg")));
-        assertThat(service.readCover(id, true)).contains(stored);
+        assertThat(service.readCover(id, true).orElseThrow().contentType()).isEqualTo("image/jpeg");
     }
 
     private BookEntity bookWith(

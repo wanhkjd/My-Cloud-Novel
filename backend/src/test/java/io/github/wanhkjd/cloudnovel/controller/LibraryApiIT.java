@@ -509,10 +509,48 @@ class LibraryApiIT extends DatabaseIntegrationTest {
                                 .with(csrf()))
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/books/" + id)).andExpect(jsonPath("$.hasCover").value(false));
+        mvc.perform(get("/api/books/" + id + "/cover")).andExpect(status().isNotFound());
         mvc.perform(
                         delete("/api/books/" + id + "/cover")
                                 .with(user("admin").roles("ADMIN"))
                                 .with(csrf()))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void coverGetIsAlways404WithNosniffWhenUnavailableAndStreamsWhenVisible() throws Exception {
+        mvc.perform(get("/api/books/" + UUID.randomUUID() + "/cover"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+        mvc.perform(get("/api/books/not-a-uuid/cover"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+
+        String id = upload();
+        mvc.perform(get("/api/books/" + id + "/cover").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/books/" + id + "/cover"))
+                .andExpect(status().isNotFound())
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+
+        mvc.perform(get("/api/books/" + id + "/cover").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Cache-Control", "public, max-age=300"));
+
+        publish(id, false);
+        mvc.perform(get("/api/books/" + id + "/cover"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
     }
 }
