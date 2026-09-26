@@ -11,10 +11,12 @@ import jakarta.validation.constraints.Size;
  * @param description 简介，最多 4000 字符，null 按空字符串处理
  * @param catalogPublished 是否公开书目
  * @param textPublished 是否公开正文及原始下载
+ * @param timelineDate 自定义时间轴日期，可空；前端清空日期框时提交 null
  */
 public record BookEditRequest(
         @NotBlank @Size(max = 120) String title,
         @NotBlank @Size(max = 100) String author,
         @Size(max = 4000) String description,
         boolean catalogPublished,
-        boolean textPublished) {}
+        boolean textPublished,
+        java.time.LocalDate timelineDate) {}

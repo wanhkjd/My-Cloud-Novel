@@ -172,7 +172,9 @@ public class LibraryServiceImpl implements LibraryService {
                         sha256(bytes),
                         false,
                         false,
-                        clock.millis());
+                        clock.millis(),
+                        null,
+                        null);
         storage.writeNew(id, bytes);
         try {
             return transactions.execute(
@@ -240,7 +242,9 @@ public class LibraryServiceImpl implements LibraryService {
                                     old.sha256(),
                                     edit.catalogPublished(),
                                     edit.textPublished(),
-                                    old.createdAt());
+                                    old.createdAt(),
+                                    edit.timelineDate(),
+                                    old.coverPath());
                     if (bookMapper.updateMetadata(updated) == 0) {
                         throw unavailable();
                     }
@@ -292,7 +296,9 @@ public class LibraryServiceImpl implements LibraryService {
                 book.textPublished(),
                 book.createdAt(),
                 canRead,
-                includePreface && canRead ? book.preface() : "");
+                includePreface && canRead ? book.preface() : "",
+                book.timelineDate(),
+                book.coverPath() != null);
     }
 
     private static String requiredText(String text, int maxLength, String label) {

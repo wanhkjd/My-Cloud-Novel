@@ -16,6 +16,8 @@ package io.github.wanhkjd.cloudnovel.dto.resp;
  * @param createdAt 创建时间，Unix 毫秒
  * @param canRead 当前调用者是否有正文访问权
  * @param preface 仅在详情且调用者可读时返回前言，否则为空
+ * @param timelineDate 自定义时间轴日期，序列化为 "yyyy-MM-dd" 或 null
+ * @param hasCover 是否已上传封面；前端据此决定是否请求 /api/books/{id}/cover
  */
 public record BookView(
         String id,
@@ -30,4 +32,6 @@ public record BookView(
         boolean textPublished,
         long createdAt,
         boolean canRead,
-        String preface) {}
+        String preface,
+        java.time.LocalDate timelineDate,
+        boolean hasCover) {}

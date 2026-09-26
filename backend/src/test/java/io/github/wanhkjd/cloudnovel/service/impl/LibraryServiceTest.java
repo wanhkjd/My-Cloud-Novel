@@ -17,6 +17,7 @@ import io.github.wanhkjd.cloudnovel.service.LibraryService;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -137,12 +138,12 @@ class LibraryServiceTest {
         assertThatThrownBy(
                         () ->
                                 service.updateBook(
-                                        id, new BookEditRequest("书名", "作者", "", false, true)))
+                                        id, new BookEditRequest("书名", "作者", "", false, true, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(
                         () ->
                                 service.updateBook(
-                                        id, new BookEditRequest(" ", "作者", "", false, false)))
+                                        id, new BookEditRequest(" ", "作者", "", false, false, null)))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(books, chapters, storage);
     }
@@ -163,6 +164,49 @@ class LibraryServiceTest {
     }
 
     @Test
+    void updateBookAppliesThenClearsTimelineDateAndNeverTouchesCover() {
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(true, false, null, "covers/" + id + ".jpg")));
+        when(books.updateMetadata(any())).thenReturn(1);
+        ArgumentCaptor<BookEntity> saved = ArgumentCaptor.captor();
+
+        var set =
+                service.updateBook(
+                        id,
+                        new BookEditRequest(
+                                "书名", "作者", "", true, false, LocalDate.parse("2026-09-25")));
+        var cleared =
+                service.updateBook(id, new BookEditRequest("书名", "作者", "", true, false, null));
+
+        verify(books, times(2)).updateMetadata(saved.capture());
+        assertThat(saved.getAllValues())
+                .extracting(BookEntity::timelineDate)
+                .containsExactly(LocalDate.parse("2026-09-25"), null);
+        assertThat(saved.getAllValues())
+                .allSatisfy(e -> assertThat(e.coverPath()).isEqualTo("covers/" + id + ".jpg"));
+        assertThat(set.timelineDate()).isEqualTo(LocalDate.parse("2026-09-25"));
+        assertThat(cleared.timelineDate()).isNull();
+    }
+
+    @Test
+    void viewReportsHasCoverWithoutExposingPath() {
+        when(books.findById(id))
+                .thenReturn(Optional.of(bookWith(true, true, null, "covers/" + id + ".webp")));
+        assertThat(service.getBook(id, true).hasCover()).isTrue();
+        when(books.findById(id)).thenReturn(Optional.of(bookWith(true, true, null, null)));
+        assertThat(service.getBook(id, true).hasCover()).isFalse();
+    }
+
+    @Test
+    void importLeavesTimelineAndCoverUnset() throws Exception {
+        service.importNovel("第一章 测试\n原创段落。".getBytes(StandardCharsets.UTF_8), "测试.txt");
+        ArgumentCaptor<BookEntity> inserted = ArgumentCaptor.captor();
+        verify(books).insert(inserted.capture());
+        assertThat(inserted.getValue().timelineDate()).isNull();
+        assertThat(inserted.getValue().coverPath()).isNull();
+    }
+
+    @Test
     void emptyChapterAllowsOnlyParagraphZero() {
         when(books.findById(id)).thenReturn(Optional.of(book(false, false)));
         when(chapters.findByPosition(id, 0))
@@ -173,7 +217,26 @@ class LibraryServiceTest {
     }
 
     private BookEntity book(boolean catalogue, boolean text) {
+        return bookWith(catalogue, text, null, null);
+    }
+
+    private BookEntity bookWith(
+            boolean catalogue, boolean text, LocalDate timelineDate, String coverPath) {
         return new BookEntity(
-                id, "测试", "作者", "", "UTF-8", 1, 0, 10, "私有前言", "a".repeat(64), catalogue, text, 1);
+                id,
+                "测试",
+                "作者",
+                "",
+                "UTF-8",
+                1,
+                0,
+                10,
+                "私有前言",
+                "a".repeat(64),
+                catalogue,
+                text,
+                1,
+                timelineDate,
+                coverPath);
     }
 }

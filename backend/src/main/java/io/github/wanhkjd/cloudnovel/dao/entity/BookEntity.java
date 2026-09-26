@@ -16,6 +16,8 @@ package io.github.wanhkjd.cloudnovel.dao.entity;
  * @param catalogPublished 书目是否公开
  * @param textPublished 正文是否公开
  * @param createdAt 创建时间，Unix 毫秒
+ * @param timelineDate 自定义时间轴日期，可空；为空时前端回退 createdAt
+ * @param coverPath 封面对象键（如 covers/{id}.jpg），仅存储用，绝不下发前端
  */
 public record BookEntity(
         String id,
@@ -30,4 +32,6 @@ public record BookEntity(
         String sha256,
         boolean catalogPublished,
         boolean textPublished,
-        long createdAt) {}
+        long createdAt,
+        java.time.LocalDate timelineDate,
+        String coverPath) {}

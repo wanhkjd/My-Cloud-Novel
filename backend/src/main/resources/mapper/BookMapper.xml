@@ -4,25 +4,30 @@
   <!-- 书架不加载前言；是否公开由 Service 传入条件。 -->
   <select id="findAll" resultType="io.github.wanhkjd.cloudnovel.dao.entity.BookEntity">
     SELECT id, title, author, description, encoding, chapter_count, volume_count,
-           character_count, '' AS preface, sha256, catalog_published, text_published, created_at
+           character_count, '' AS preface, sha256, catalog_published, text_published, created_at,
+           timeline_date, cover_path
     FROM books
     <where><if test="publishedOnly">catalog_published = TRUE</if></where>
     ORDER BY created_at DESC, id
   </select>
   <select id="findById" resultType="io.github.wanhkjd.cloudnovel.dao.entity.BookEntity">
     SELECT id, title, author, description, encoding, chapter_count, volume_count,
-           character_count, preface, sha256, catalog_published, text_published, created_at
+           character_count, preface, sha256, catalog_published, text_published, created_at,
+           timeline_date, cover_path
     FROM books WHERE id = #{id}
   </select>
   <insert id="insert">
     INSERT INTO books (id, title, author, description, encoding, chapter_count, volume_count,
-                       character_count, preface, sha256, catalog_published, text_published, created_at)
+                       character_count, preface, sha256, catalog_published, text_published, created_at,
+                       timeline_date, cover_path)
     VALUES (#{id}, #{title}, #{author}, #{description}, #{encoding}, #{chapterCount}, #{volumeCount},
-            #{characterCount}, #{preface}, #{sha256}, #{catalogPublished}, #{textPublished}, #{createdAt})
+            #{characterCount}, #{preface}, #{sha256}, #{catalogPublished}, #{textPublished}, #{createdAt},
+            #{timelineDate}, #{coverPath})
   </insert>
   <update id="updateMetadata">
     UPDATE books SET title = #{title}, author = #{author}, description = #{description},
-                     catalog_published = #{catalogPublished}, text_published = #{textPublished}
+                     catalog_published = #{catalogPublished}, text_published = #{textPublished},
+                     timeline_date = #{timelineDate}
     WHERE id = #{id}
   </update>
   <delete id="deleteById">DELETE FROM books WHERE id = #{id}</delete>

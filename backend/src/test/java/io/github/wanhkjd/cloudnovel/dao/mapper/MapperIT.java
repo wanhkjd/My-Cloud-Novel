@@ -9,6 +9,7 @@ import io.github.wanhkjd.cloudnovel.dao.entity.ChapterEntity;
 import io.github.wanhkjd.cloudnovel.dao.entity.ProgressEntity;
 import io.github.wanhkjd.cloudnovel.dao.entity.ReadingSessionEntity;
 import io.github.wanhkjd.cloudnovel.support.DatabaseIntegrationTest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,9 @@ class MapperIT extends DatabaseIntegrationTest {
                         book.sha256(),
                         true,
                         false,
-                        book.createdAt());
+                        book.createdAt(),
+                        book.timelineDate(),
+                        book.coverPath());
         assertThat(books.updateMetadata(published)).isEqualTo(1);
         assertThat(books.findAll(true)).extracting(BookEntity::title).containsExactly("新书名");
         assertThat(books.findById(book.id()).orElseThrow().textPublished()).isFalse();
@@ -68,7 +71,9 @@ class MapperIT extends DatabaseIntegrationTest {
                         book.sha256(),
                         false,
                         false,
-                        1);
+                        1,
+                        null,
+                        null);
         assertThatThrownBy(() -> books.insert(duplicate)).isInstanceOf(DuplicateKeyException.class);
     }
 
@@ -166,6 +171,114 @@ class MapperIT extends DatabaseIntegrationTest {
                 .isEqualTo("正文含四字节字符：📚𠮷");
     }
 
+    @Test
+    void persistsTimelineDateAndCoverPathRoundTrip() {
+        String id = UUID.randomUUID().toString();
+        BookEntity book =
+                new BookEntity(
+                        id,
+                        "时间轴书",
+                        "作者",
+                        "",
+                        "UTF-8",
+                        1,
+                        0,
+                        5,
+                        "前言",
+                        "a".repeat(64),
+                        true,
+                        false,
+                        2000,
+                        LocalDate.parse("2026-09-25"),
+                        "covers/" + id + ".jpg");
+        books.insert(book);
+        BookEntity stored = books.findById(id).orElseThrow();
+        assertThat(stored.timelineDate()).isEqualTo(LocalDate.parse("2026-09-25"));
+        assertThat(stored.coverPath()).isEqualTo("covers/" + id + ".jpg");
+    }
+
+    @Test
+    void updateMetadataClearsTimelineDateToSqlNull() {
+        String id = UUID.randomUUID().toString();
+        books.insert(
+                new BookEntity(
+                        id,
+                        "有日期",
+                        "作者",
+                        "",
+                        "UTF-8",
+                        1,
+                        0,
+                        5,
+                        "",
+                        "b".repeat(64),
+                        true,
+                        false,
+                        3000,
+                        LocalDate.parse("2026-01-02"),
+                        null));
+        BookEntity cleared =
+                new BookEntity(
+                        id,
+                        "有日期",
+                        "作者",
+                        "",
+                        "UTF-8",
+                        1,
+                        0,
+                        5,
+                        "",
+                        "b".repeat(64),
+                        true,
+                        false,
+                        3000,
+                        null,
+                        null);
+        assertThat(books.updateMetadata(cleared)).isEqualTo(1);
+        assertThat(books.findById(id).orElseThrow().timelineDate()).isNull();
+    }
+
+    @Test
+    void findAllBreaksCreatedAtTiesDeterministicallyById() {
+        String low = "00000000-0000-0000-0000-000000000000";
+        String high = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+        books.insert(
+                new BookEntity(
+                        high,
+                        "同刻B",
+                        "作者",
+                        "",
+                        "UTF-8",
+                        1,
+                        0,
+                        5,
+                        "",
+                        "c".repeat(64),
+                        true,
+                        false,
+                        7000,
+                        null,
+                        null));
+        books.insert(
+                new BookEntity(
+                        low,
+                        "同刻A",
+                        "作者",
+                        "",
+                        "UTF-8",
+                        1,
+                        0,
+                        5,
+                        "",
+                        "d".repeat(64),
+                        true,
+                        false,
+                        7000,
+                        null,
+                        null));
+        assertThat(books.findAll(true)).extracting(BookEntity::id).containsExactly(low, high);
+    }
+
     private BookEntity seedBook() {
         BookEntity book =
                 new BookEntity(
@@ -181,7 +294,9 @@ class MapperIT extends DatabaseIntegrationTest {
                         UUID.randomUUID().toString().replace("-", "").repeat(2),
                         false,
                         false,
-                        1000);
+                        1000,
+                        null,
+                        null);
         books.insert(book);
         chapters.insertBatch(
                 List.of(
