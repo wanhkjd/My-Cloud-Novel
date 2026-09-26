@@ -39,3 +39,38 @@ it('cancels the frame on unmount', () => {
   mount(StarfieldCanvas).unmount();
   expect(cancel).toHaveBeenCalledWith(7);
 });
+
+it('follows the pointer with parallax on a fine pointer', () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((q: string) => ({ matches: q.includes('pointer: fine') })),
+  );
+  vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1 as never);
+  const add = vi.spyOn(window, 'addEventListener');
+  const node = mount(StarfieldCanvas);
+  expect(add).toHaveBeenCalledWith('pointermove', expect.any(Function), { passive: true });
+  const remove = vi.spyOn(window, 'removeEventListener');
+  node.unmount();
+  expect(remove).toHaveBeenCalledWith('pointermove', expect.any(Function));
+});
+
+it('skips pointer parallax on a coarse (touch) pointer', () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: false })),
+  );
+  vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1 as never);
+  const add = vi.spyOn(window, 'addEventListener');
+  mount(StarfieldCanvas);
+  expect(add).not.toHaveBeenCalledWith('pointermove', expect.any(Function), expect.anything());
+});
+
+it('skips pointer parallax under reduced motion', () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: true })),
+  );
+  const add = vi.spyOn(window, 'addEventListener');
+  mount(StarfieldCanvas);
+  expect(add).not.toHaveBeenCalledWith('pointermove', expect.any(Function), expect.anything());
+});
