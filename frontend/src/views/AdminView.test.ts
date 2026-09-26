@@ -27,6 +27,8 @@ it('keeps the named import result distinct while the book list is still loading'
     catalogPublished: false,
     textPublished: false,
     createdAt: 0,
+    timelineDate: null,
+    hasCover: false,
     canRead: true,
     preface: '',
   };

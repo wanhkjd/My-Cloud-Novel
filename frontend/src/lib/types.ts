@@ -10,6 +10,8 @@ export interface Book {
   catalogPublished: boolean;
   textPublished: boolean;
   createdAt: number;
+  timelineDate: string | null;
+  hasCover: boolean;
   canRead: boolean;
   preface: string;
 }
