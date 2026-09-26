@@ -2517,3 +2517,213 @@ button.primary,
     display: none;
   }
 }
+/* ===== 银河时间轴首页（作用域：body.galaxy-route / .galaxy-view） ===== */
+body.galaxy-route {
+  background: radial-gradient(1200px 800px at 50% -10%, #16213e 0%, #0b1026 55%, #05060f 100%);
+  color: #e8ecff;
+}
+body.galaxy-route .site-header.galaxy-chrome,
+body.galaxy-route .site-footer.galaxy-chrome {
+  background: transparent;
+  border-color: rgba(200, 214, 255, 0.16);
+  color: #e8ecff;
+}
+body.galaxy-route .site-header.galaxy-chrome a,
+body.galaxy-route .site-header.galaxy-chrome .brand,
+body.galaxy-route .site-footer.galaxy-chrome {
+  color: #e8ecff;
+}
+
+.galaxy-view {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.starfield {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.galaxy-notice {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 6rem 1.5rem;
+  color: #c8d3ff;
+  font-size: 1.05rem;
+}
+.galaxy-error {
+  color: #ffb4b4;
+}
+.galaxy-timeline {
+  position: relative;
+  z-index: 1;
+  padding: 12vh 0 16vh;
+}
+.galaxy-vine {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: min(120px, 22vw);
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.vine-path {
+  fill: none;
+  stroke: #8ea2ff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  filter: drop-shadow(0 0 6px rgba(142, 162, 255, 0.9));
+  transition: stroke-dashoffset 0.2s linear;
+}
+.vine-node {
+  fill: #24305e;
+  stroke: #8ea2ff;
+  stroke-width: 1.5;
+  transition:
+    fill 0.4s ease,
+    filter 0.4s ease;
+}
+.vine-node.lit {
+  fill: #cfe0ff;
+  filter: drop-shadow(0 0 6px rgba(207, 224, 255, 0.9));
+}
+.timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+.timeline-book {
+  position: relative;
+  width: min(420px, 82vw);
+  margin: 8vh auto;
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+.timeline-book.right {
+  margin-right: 0;
+  margin-left: calc(50% + 40px);
+}
+.timeline-book.left {
+  margin-left: 0;
+  margin-right: calc(50% + 40px);
+}
+.timeline-book.revealed {
+  opacity: 1;
+  transform: none;
+}
+.timeline-date {
+  display: block;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #9fb0ff;
+  margin-bottom: 0.5rem;
+}
+.timeline-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(20, 28, 58, 0.72);
+  border: 1px solid rgba(142, 162, 255, 0.22);
+  color: #e8ecff;
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+.timeline-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(142, 162, 255, 0.55);
+  box-shadow: 0 12px 40px rgba(10, 16, 40, 0.6);
+}
+.timeline-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.timeline-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.timeline-author {
+  color: #c2ccf2;
+  font-size: 0.9rem;
+}
+.timeline-description {
+  color: #ccd5f5;
+  font-size: 0.9rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.timeline-meta {
+  color: #aeb9e4;
+  font-size: 0.82rem;
+  margin-top: auto;
+}
+.timeline-flag {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(142, 162, 255, 0.18);
+  color: #cfe0ff;
+}
+.book-cover-image {
+  width: 84px;
+  height: 118px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex: none;
+}
+.book-cover-image.small {
+  width: 56px;
+  height: 78px;
+}
+@media (max-width: 720px) {
+  .timeline-book,
+  .timeline-book.left,
+  .timeline-book.right {
+    width: min(460px, 86vw);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 44px;
+  }
+  .galaxy-vine {
+    left: 20px;
+    transform: none;
+    width: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline-book {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .vine-path,
+  .vine-node,
+  .timeline-card {
+    transition: none;
+  }
+  .timeline-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
