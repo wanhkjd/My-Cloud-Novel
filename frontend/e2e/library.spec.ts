@@ -166,11 +166,12 @@ test('owner imports a draft, restores a bookmark, and explicitly publishes to vi
   expect(await (await guest.request.get('/api/books/' + book.id + '/bookmarks')).json()).toEqual(
     [],
   );
-  await page.getByRole('link', { name: '阅读足迹', exact: true }).click();
+  // The 阅读足迹 page was removed; publish the saved bookmark from the reader instead.
+  await page.goto('/books/' + book.id);
+  await page.getByRole('link', { name: '继续阅读', exact: true }).click();
+  await expectRestoredToParagraph3(page);
+  await page.getByRole('button', { name: '编辑第3段书签', exact: true }).click();
   await expectAccessible(page);
-  await page.getByRole('button', { name: '书签与感想 1' }).click();
-  await expectAccessible(page);
-  await page.getByRole('button', { name: '编辑感想' }).click();
   await page.getByLabel('公开这条感想（仅随已公开正文展示）').check();
   await page.getByRole('button', { name: '保存书签', exact: true }).click();
   await expect(page.locator('.editor-dialog')).not.toBeVisible();

@@ -23,11 +23,6 @@ const router = createRouter({
       meta: { title: '阅读', reader: true },
     },
     {
-      path: '/journal',
-      component: () => import('./views/JournalView.vue'),
-      meta: { title: '阅读足迹' },
-    },
-    {
       path: '/admin',
       component: () => import('./views/AdminView.vue'),
       meta: { title: '管理书房', owner: true },

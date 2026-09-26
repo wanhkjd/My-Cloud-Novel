@@ -30,7 +30,6 @@ async function signOut() {
     <nav aria-label="主导航">
       <RouterLink to="/" :class="{ selected: route.name === 'book' || route.name === 'galaxy' }"
         >书库</RouterLink
-      ><RouterLink to="/journal">阅读足迹</RouterLink
       ><RouterLink :to="auth.authenticated ? '/admin' : '/login'">{{
         auth.authenticated ? '管理书房' : '主人入口'
       }}</RouterLink
