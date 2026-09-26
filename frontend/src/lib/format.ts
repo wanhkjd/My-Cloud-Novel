@@ -19,3 +19,10 @@ export const dateTime = (ms: number) =>
   }).format(ms);
 export const readingLink = (bookId: string, chapter = 0, paragraph = 0) =>
   '/read/' + encodeURIComponent(bookId) + '/' + chapter + '?p=' + paragraph;
+export const dayLabel = (ms: number) =>
+  new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Shanghai',
+  }).format(ms);
