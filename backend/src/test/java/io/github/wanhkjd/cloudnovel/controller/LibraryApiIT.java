@@ -492,4 +492,27 @@ class LibraryApiIT extends DatabaseIntegrationTest {
                                 .with(csrf()))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void ownerRemovesCoverAndSubsequentReadsFallBackIdempotently() throws Exception {
+        String id = upload();
+        publish(id, false);
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isOk());
+        mvc.perform(
+                        delete("/api/books/" + id + "/cover")
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/books/" + id)).andExpect(jsonPath("$.hasCover").value(false));
+        mvc.perform(
+                        delete("/api/books/" + id + "/cover")
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isNoContent());
+    }
 }

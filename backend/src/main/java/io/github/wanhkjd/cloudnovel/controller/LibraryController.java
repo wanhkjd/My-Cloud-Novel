@@ -123,6 +123,18 @@ public class LibraryController {
     }
 
     /**
+     * 移除指定书籍的封面；无封面时同样返回成功（幂等）。
+     *
+     * @param id 目标书籍标识
+     * @throws IOException 删除封面文件失败时抛出
+     */
+    @DeleteMapping("/{id}/cover")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCover(@PathVariable String id) throws IOException {
+        libraryService.removeCover(id);
+    }
+
+    /**
      * 修改书目与公开设置。
      *
      * @param id 书籍 UUID
