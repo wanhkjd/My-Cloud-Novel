@@ -1166,7 +1166,6 @@ import io.github.wanhkjd.cloudnovel.core.storage.StoredImage;
         verify(books, times(2)).updateCover(id, null);
     }
 
-```java
     @Test
     void readCoverHidesMissingUnpublishedOrCoverlessBooks() throws Exception {
         when(books.findById(id)).thenReturn(Optional.empty());
@@ -2148,7 +2147,7 @@ const book: Book = {
   id: 'b7', title: '夜航', author: '林澈', description: '一段向上的旅程',
   encoding: 'UTF-8', chapterCount: 12, volumeCount: 1, characterCount: 42000,
   catalogPublished: true, textPublished: true, createdAt: 1700000000000,
-  canRead: true, preface: null, timelineDate: '2020-03-01', hasCover: true,
+  canRead: true, preface: '', timelineDate: '2020-03-01', hasCover: true,
 };
 
 const mountNode = (over: Partial<{ side: 'left' | 'right'; revealed: boolean }> = {}) =>
@@ -2488,7 +2487,7 @@ const res = (body: unknown) =>
 const makeBook = (over: Partial<Book>): Book => ({
   id: 'b', title: '书', author: '佚名', description: '', encoding: 'UTF-8',
   chapterCount: 1, volumeCount: 1, characterCount: 100, catalogPublished: true,
-  textPublished: false, createdAt: 1, canRead: false, preface: null,
+  textPublished: false, createdAt: 1, canRead: false, preface: '',
   timelineDate: null, hasCover: false, ...over,
 });
 
