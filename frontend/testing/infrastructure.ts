@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 /** Only dedicated test credentials are accepted; never derive a target from the runtime DB_URL. */
 export function e2eEnvironment(input: Record<string, string | undefined>) {
   // JVM options / external configuration can outrank the explicit test environment below.
@@ -16,9 +14,6 @@ export function e2eEnvironment(input: Record<string, string | undefined>) {
     'SPRING_PROFILES_ACTIVE',
     'SPRING_PROFILES_INCLUDE',
     'SPRING_DATASOURCE_JNDI_NAME',
-    'SPRING_DATA_REDIS_URL',
-    'SPRING_DATA_REDIS_CLUSTER_NODES',
-    'SPRING_DATA_REDIS_SENTINEL_MASTER',
   ];
   for (const name of overrides) {
     if (input[name]?.trim()) {
@@ -26,8 +21,7 @@ export function e2eEnvironment(input: Record<string, string | undefined>) {
     }
   }
   const host = input.TEST_MYSQL_HOST ?? '127.0.0.1';
-  const redisHost = input.TEST_REDIS_HOST ?? '127.0.0.1';
-  if (![host, redisHost].every((value) => /^[A-Za-z0-9.-]+$/.test(value))) {
+  if (![host].every((value) => /^[A-Za-z0-9.-]+$/.test(value))) {
     throw new Error('Test hosts must be hostnames or IPv4 addresses, not connection URLs.');
   }
   const port = (value: string) => {
@@ -48,10 +42,6 @@ export function e2eEnvironment(input: Record<string, string | undefined>) {
     ':' +
     port(input.TEST_MYSQL_PORT ?? '3306') +
     '/cloud_novel_e2e?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&sslMode=DISABLED&allowPublicKeyRetrieval=true';
-  const redisPort = port(input.TEST_REDIS_PORT ?? '6379');
-  const redisPassword = input.TEST_REDIS_PASSWORD ?? '';
-  const redisUsername = input.TEST_REDIS_USERNAME ?? '';
-  const namespace = 'cloud-novel:e2e:' + randomUUID();
   return {
     SERVER_ADDRESS: '127.0.0.1',
     SERVER_PORT: '18080',
@@ -67,20 +57,6 @@ export function e2eEnvironment(input: Record<string, string | undefined>) {
     SPRING_DATASOURCE_PASSWORD: input.E2E_DB_PASSWORD,
     SPRING_DATASOURCE_DRIVER_CLASS_NAME: 'com.mysql.cj.jdbc.Driver',
     SPRING_SQL_INIT_MODE: 'never',
-    REDIS_HOST: redisHost,
-    REDIS_PORT: redisPort,
-    REDIS_USERNAME: redisUsername,
-    REDIS_PASSWORD: redisPassword,
-    REDIS_DATABASE: '14',
-    REDIS_NAMESPACE: namespace,
-    REDIS_SSL: 'false',
-    SPRING_DATA_REDIS_HOST: redisHost,
-    SPRING_DATA_REDIS_PORT: redisPort,
-    SPRING_DATA_REDIS_USERNAME: redisUsername,
-    SPRING_DATA_REDIS_PASSWORD: redisPassword,
-    SPRING_DATA_REDIS_DATABASE: '14',
-    SPRING_DATA_REDIS_SSL_ENABLED: 'false',
-    SPRING_SESSION_REDIS_NAMESPACE: namespace,
     BOOK_STORAGE: './target/e2e-books',
     APP_STORAGE_DIRECTORY: './target/e2e-books',
     COOKIE_SECURE: 'false',
