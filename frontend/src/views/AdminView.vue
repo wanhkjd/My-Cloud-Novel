@@ -156,7 +156,7 @@ onMounted(load);
         <h1>把书架整理好。</h1>
         <p class="muted">上传、校对、公开。每一本书的去留，由你决定。</p>
       </div>
-      <RouterLink to="/" class="button secondary">查看书架 <ArrowUpRight :size="17" /></RouterLink>
+      <RouterLink to="/" class="button secondary">回到星河 <ArrowUpRight :size="17" /></RouterLink>
     </div>
     <div class="notice">
       <LockKeyhole :size="18" /><span

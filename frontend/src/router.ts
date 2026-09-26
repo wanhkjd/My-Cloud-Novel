@@ -6,9 +6,9 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'shelf',
-      component: () => import('./views/ShelfView.vue'),
-      meta: { title: '书库' },
+      name: 'galaxy',
+      component: () => import('./views/GalaxyView.vue'),
+      meta: { title: '星河', galaxy: true },
     },
     {
       path: '/books/:id',
