@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>藏书星河</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --ink: #e8ecff;
+        --serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+        --sans: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        min-height: 100vh;
+        background: #05060f;
+        color: var(--ink);
+        font-family: var(--sans);
+        overflow-x: hidden;
+      }
+      /* 背景：固定全屏 canvas，星空与动态银河都画在这里。 */
+      #sky {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        display: block;
+      }
+      .galaxy-view {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+      }
+      .galaxy-head {
+        text-align: center;
+        padding: 12vh 1.5rem 2vh;
+      }
+      .galaxy-head .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.5em;
+        color: #9fb0ff;
+        margin: 0 0 1rem;
+      }
+      .galaxy-head h1 {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: clamp(30px, 5vw, 52px);
+        letter-spacing: 0.15em;
+        margin: 0;
+        text-shadow: 0 0 24px rgba(142, 162, 255, 0.5);
+      }
+      .galaxy-head p {
+        color: #c2ccf2;
+        font-size: 14px;
+        margin: 1rem auto 0;
+        max-width: 30rem;
+        line-height: 1.9;
+      }
+      .galaxy-timeline {
+        position: relative;
+        padding: 8vh 0 16vh;
+      }
+      .timeline-list {
+        list-style: none;
+        margin: 0 auto;
+        padding: 0;
+        max-width: 1100px;
+      }
+      .timeline-book {
+        position: relative;
+        width: min(420px, 82vw);
+        margin: 7vh auto;
+      }
+      .timeline-book.right {
+        margin-right: 0;
+        margin-left: calc(50% + 44px);
+      }
+      .timeline-book.left {
+        margin-left: 0;
+        margin-right: calc(50% + 44px);
+      }
+      .timeline-date {
+        display: block;
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        color: #9fb0ff;
+        margin-bottom: 0.5rem;
+      }
+      .timeline-book.left .timeline-date {
+        text-align: right;
+      }
+      .timeline-card {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        border-radius: 16px;
+        background: rgba(20, 28, 58, 0.72);
+        border: 1px solid rgba(142, 162, 255, 0.22);
+        color: var(--ink);
+        text-decoration: none;
+        backdrop-filter: blur(6px);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease,
+          border-color 0.3s ease;
+      }
+      .timeline-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(142, 162, 255, 0.55);
+        box-shadow: 0 12px 40px rgba(10, 16, 40, 0.6);
+      }
+      .cover-thumb {
+        width: 58px;
+        height: 82px;
+        border-radius: 10px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 6px 4px;
+        font-family: var(--serif);
+        font-size: 12px;
+        line-height: 1.35;
+        letter-spacing: 1px;
+        color: #f3efe2;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+      }
+      .timeline-card-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-width: 0;
+      }
+      .timeline-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+      .timeline-author {
+        color: #c2ccf2;
+        font-size: 0.9rem;
+      }
+      .timeline-description {
+        color: #ccd5f5;
+        font-size: 0.9rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .timeline-meta {
+        color: #aeb9e4;
+        font-size: 0.82rem;
+        margin-top: auto;
+      }
+      .timeline-flag {
+        margin-left: 0.5rem;
+        padding: 0.05rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(142, 162, 255, 0.18);
+        color: #cfe0ff;
+      }
+      @media (max-width: 720px) {
+        .timeline-book,
+        .timeline-book.left,
+        .timeline-book.right {
+          width: min(460px, 86vw);
+          margin-left: auto;
+          margin-right: auto;
+          padding-left: 46px;
+        }
+        .timeline-book.left .timeline-date {
+          text-align: left;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .timeline-card {
+          transition: none;
+        }
+        .timeline-card:hover {
+          transform: none;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <div class="galaxy-view">
+      <header class="galaxy-head">
+        <p class="eyebrow">READING TIMELINE</p>
+        <h1>藏书星河</h1>
+        <p>沿着银河一路向下，每一颗亮起的星，都是走过的一本书。</p>
+      </header>
+      <div class="galaxy-timeline">
+        <ol class="timeline-list">
+          <li class="timeline-book right">
+            <time class="timeline-date">2024 · 01</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #3a4b6e, #232f47)">归乡记</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">归乡记</span>
+                <span class="timeline-author">苏晚</span>
+                <span class="timeline-description">列车穿过隧道的那一刻她才明白，故乡早已成了地图上一处需要导航才能抵达的地名。</span>
+                <span class="timeline-meta">28 章 · 12.4 万字 <span class="timeline-flag">可阅读</span></span>
+              </div>
+            </div>
+          </li>
+          <li class="timeline-book left">
+            <time class="timeline-date">2023 · 06</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #2f4b3a, #22382b)">长夜行舟</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">长夜行舟</span>
+                <span class="timeline-author">陆时砚</span>
+                <span class="timeline-description">灯塔熄灭之后，海面上只剩下桨声，和两个人谁都不肯先开口的沉默。</span>
+                <span class="timeline-meta">41 章 · 19.7 万字 <span class="timeline-flag">可阅读</span></span>
+              </div>
+            </div>
+          </li>
+          <li class="timeline-book right">
+            <time class="timeline-date">2022 · 11</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #5a4636, #3a2c22)">春山可望</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">春山可望</span>
+                <span class="timeline-author">沈砚</span>
+                <span class="timeline-description">她把整座春天寄进信封，却在邮筒前想起，收信的人已经搬去了没有山的城市。</span>
+                <span class="timeline-meta">33 章 · 15.2 万字</span>
+              </div>
+            </div>
+          </li>
+          <li class="timeline-book left">
+            <time class="timeline-date">2022 · 02</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #4a3f63, #2f2842)">星子与灯</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">星子与灯</span>
+                <span class="timeline-author">林未晞</span>
+                <span class="timeline-description">天文台的最后一夜，他教她辨认那些正在死去的星，说它们的光还要再走上千年。</span>
+                <span class="timeline-meta">36 章 · 16.8 万字 <span class="timeline-flag">可阅读</span></span>
+              </div>
+            </div>
+          </li>
+          <li class="timeline-book right">
+            <time class="timeline-date">2021 · 09</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #2f4a63, #22323f)">夜航船札记</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">夜航船札记</span>
+                <span class="timeline-author">佚名</span>
+                <span class="timeline-description">舟中夜话，天文地理无所不谈；士子鼾睡时，摇橹的船夫悄悄把话都记了下来。</span>
+                <span class="timeline-meta">52 章 · 8.6 万字</span>
+              </div>
+            </div>
+          </li>
+          <li class="timeline-book left">
+            <time class="timeline-date">2021 · 03</time>
+            <div class="timeline-card">
+              <div class="cover-thumb" style="background: linear-gradient(160deg, #5a3a4a, #3a2530)">山海拾遗</div>
+              <div class="timeline-card-copy">
+                <span class="timeline-title">山海拾遗</span>
+                <span class="timeline-author">佚名</span>
+                <span class="timeline-description">拾遗者行至世界的边缘，发现群山与大海不过是同一卷古籍摊开的两页。</span>
+                <span class="timeline-meta">19 章 · 6.3 万字</span>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+    <script>
+      // 背景渲染：真实星空 + 从上到下贯穿并持续流动的银河带。纯视觉演示，无业务逻辑。
+      (() => {
+        const canvas = document.getElementById('sky');
+        const ctx = canvas && canvas.getContext('2d');
+        if (!ctx) return;
+        const reduceMotion =
+          window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        let W = 0,
+          H = 0,
+          dpr = 1;
+        let stars = [];
+        let nebula = null; // 预渲染、可竖直无缝平铺的银河带
+        let offset = 0; // 银河向下流动的位移
+        let raf = 0;
+        const SPEED = 0.25; // 每帧下移像素（约 60fps）
+
+        // 到中央银河的“接近度” 0..1：越靠水平中心越大，驱动星星的亮度与密度。
+        function bandCloseness(x) {
+          const dx = (x - W / 2) / (W * 0.17);
+          return Math.exp(-dx * dx);
+        }
+        // 造一颗星并入库；boost 提升亮度与体积（用于银河核心的密集亮星）。
+        function pushStar(x, y, boost) {
+          const c = bandCloseness(x);
+          const base = Math.pow(Math.random(), 2.2); // 偏暗，但保留更多中亮星
+          const mag = Math.min(1, (0.16 + 0.84 * base) * (0.32 + 0.72 * c) + boost);
+          const warm = Math.random() < 0.12; // 少量暖色星
+          const hue = warm ? 30 + Math.random() * 20 : 205 + Math.random() * 40;
+          const sat = warm ? 55 : 18 + Math.random() * 30;
+          const light = 80 + Math.random() * 16;
+          stars.push({
+            x,
+            y,
+            r: 0.4 + base * 1.9 * (0.7 + 0.3 * c) + boost * 1.2,
+            mag,
+            color: 'hsl(' + hue + ',' + sat + '%,' + light + '%)',
+            halo: mag > 0.62, // 亮星带柔光晕
+            tw: 0.6 + Math.random() * 1.9, // 闪烁速度
+            ph: Math.random() * Math.PI * 2, // 闪烁相位
+          });
+        }
+        // 星星：主星场（越近银河越密越亮）+ 紧贴中心的一簇明亮“星脊”。
+        function makeStars() {
+          stars = [];
+          const target = Math.min(620, Math.floor((W * H) / 4200));
+          let guard = 0;
+          while (stars.length < target && guard < target * 6) {
+            guard++;
+            const x = Math.random() * W;
+            const c = bandCloseness(x);
+            if (Math.random() > 0.14 + 0.86 * c) continue; // 边缘更稀疏
+            pushStar(x, Math.random() * H, 0);
+          }
+          const spine = Math.floor(target * 0.3);
+          for (let i = 0; i < spine; i++) {
+            const gx = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; // 近似高斯
+            pushStar(W / 2 + gx * W * 0.09, Math.random() * H, 0.15 + Math.random() * 0.25);
+          }
+        }
+        // 预渲染银河带到离屏画布，竖直方向无缝平铺（云团在 y 与 y±H 各画一次）。
+        function makeNebula() {
+          const off = document.createElement('canvas');
+          off.width = Math.floor(W * dpr);
+          off.height = Math.floor(H * dpr);
+          const g = off.getContext('2d');
+          g.scale(dpr, dpr);
+          const cx = W / 2;
+
+          // 明亮的竖直核心：一条贯穿上下的柔光（宽域 + 更亮的窄核）。
+          g.globalCompositeOperation = 'lighter';
+          const wide = g.createLinearGradient(cx - W * 0.2, 0, cx + W * 0.2, 0);
+          wide.addColorStop(0, 'rgba(60,74,150,0)');
+          wide.addColorStop(0.5, 'rgba(120,140,225,0.34)');
+          wide.addColorStop(1, 'rgba(60,74,150,0)');
+          g.fillStyle = wide;
+          g.fillRect(0, 0, W, H);
+          const inner = g.createLinearGradient(cx - W * 0.07, 0, cx + W * 0.07, 0);
+          inner.addColorStop(0, 'rgba(150,170,255,0)');
+          inner.addColorStop(0.5, 'rgba(175,195,255,0.3)');
+          inner.addColorStop(1, 'rgba(150,170,255,0)');
+          g.fillStyle = inner;
+          g.fillRect(0, 0, W, H);
+
+          const glow = [
+            [90, 120, 235],
+            [140, 110, 220],
+            [80, 150, 200],
+            [190, 140, 110],
+          ];
+          // 画一团竖向拉伸的云；在 y 与 y±H 各画一次以便无缝平铺。
+          const blob = (bx, by, rad, col, a, comp) => {
+            g.globalCompositeOperation = comp;
+            for (const dy of [-H, 0, H]) {
+              const gr = g.createRadialGradient(bx, by + dy, 0, bx, by + dy, rad);
+              gr.addColorStop(0, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + a + ')');
+              gr.addColorStop(1, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0)');
+              g.fillStyle = gr;
+              g.save();
+              g.translate(bx, by + dy);
+              g.scale(1, 1.8);
+              g.beginPath();
+              g.arc(0, 0, rad, 0, Math.PI * 2);
+              g.fill();
+              g.restore();
+            }
+          };
+          const N = Math.max(42, Math.floor(H / 15));
+          for (let i = 0; i < N; i++) {
+            const spread = (Math.random() - 0.5) * W * 0.34; // 横向偏离中心
+            const fade = Math.exp(-Math.pow(spread / (W * 0.2), 2)); // 越靠中心越浓
+            const col = glow[(Math.random() * glow.length) | 0];
+            const a = (0.06 + Math.random() * 0.13) * fade;
+            blob(cx + spread, Math.random() * H, 60 + Math.random() * 150, col, a, 'lighter');
+          }
+          // 暗尘带：中心附近的暗色缺口，模拟银河的分裂暗纹。
+          for (let i = 0; i < N / 3; i++) {
+            const bx = cx + (Math.random() - 0.5) * W * 0.16;
+            blob(bx, Math.random() * H, 40 + Math.random() * 90, [5, 6, 15], 0.3, 'source-over');
+          }
+          nebula = off;
+        }
+        function resize() {
+          dpr = Math.min(window.devicePixelRatio || 1, 2);
+          // 兜底：某些环境初始上报 0，避免除零导致银河尺寸算成 NaN。
+          W = window.innerWidth || document.documentElement.clientWidth || 1280;
+          H = window.innerHeight || document.documentElement.clientHeight || 800;
+          canvas.width = Math.floor(W * dpr);
+          canvas.height = Math.floor(H * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          makeStars();
+          makeNebula();
+        }
+
+        // 基底深空 + 把银河带两段竖直平铺并向下滚动 = 从上到下贯穿的动态银河。
+        function paintSky() {
+          const bg = ctx.createLinearGradient(0, 0, 0, H);
+          bg.addColorStop(0, '#070a1c');
+          bg.addColorStop(0.5, '#0b1026');
+          bg.addColorStop(1, '#05060f');
+          ctx.fillStyle = bg;
+          ctx.fillRect(0, 0, W, H);
+          if (nebula) {
+            const y = offset % H;
+            ctx.drawImage(nebula, 0, y, W, H);
+            ctx.drawImage(nebula, 0, y - H, W, H);
+          }
+        }
+        // 逐颗绘制星星：亮星带柔光晕，并做轻微闪烁。
+        function paintStars(t) {
+          for (const s of stars) {
+            const tw = reduceMotion ? 1 : 0.65 + 0.35 * Math.sin(t * 0.001 * s.tw + s.ph);
+            const alpha = Math.max(0, Math.min(1, s.mag * tw));
+            if (s.halo) {
+              const hr = s.r * 4.5;
+              const halo = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, hr);
+              halo.addColorStop(0, 'rgba(200,214,255,' + 0.5 * alpha + ')');
+              halo.addColorStop(1, 'rgba(200,214,255,0)');
+              ctx.globalCompositeOperation = 'lighter';
+              ctx.fillStyle = halo;
+              ctx.beginPath();
+              ctx.arc(s.x, s.y, hr, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.globalCompositeOperation = 'source-over';
+            }
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = s.color;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+        function frame(t) {
+          offset += SPEED; // 银河持续向下流动
+          paintSky();
+          paintStars(t);
+          raf = requestAnimationFrame(frame);
+        }
+        function draw() {
+          paintSky();
+          paintStars(0);
+        }
+        window.addEventListener(
+          'resize',
+          () => {
+            resize();
+            if (reduceMotion) draw();
+          },
+          { passive: true },
+        );
+        resize();
+        if (reduceMotion) {
+          draw(); // 尊重「减少动态」：只画一帧静态星河，不启动循环。
+        } else {
+          raf = requestAnimationFrame(frame);
+        }
+      })();
+    </script>
+  </body>
+</html>
