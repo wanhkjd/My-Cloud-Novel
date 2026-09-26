@@ -12,15 +12,15 @@ foreach ($port in @(8080, 5173)) {
     if ($listener) { throw "Port $port is already in use. Stop the existing service first; no process was changed." }
 }
 if (-not (Test-Path -LiteralPath $envFile)) {
-    throw 'Prepare MySQL / Redis first: see docs/mysql-redis-setup.md. There is no embedded database fallback.'
+    throw 'Prepare MySQL first: see docs/mysql-setup.md. There is no embedded database fallback.'
 }
 & (Join-Path $PSScriptRoot 'Import-LocalConfig.ps1') -Path $envFile
 if ([string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD) -or $env:ADMIN_PASSWORD.Length -lt 12) {
     throw "Set ADMIN_PASSWORD to at least 12 characters in $envFile."
 }
-foreach ($name in @('DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'REDIS_PASSWORD')) {
+foreach ($name in @('DB_URL', 'DB_USERNAME', 'DB_PASSWORD')) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, 'Process'))) {
-        throw "Missing $name. Follow docs/mysql-redis-setup.md; no service was started."
+        throw "Missing $name. Follow docs/mysql-setup.md; no service was started."
     }
 }
 if (-not $env:DB_URL.StartsWith('jdbc:mysql://')) { throw 'DB_URL must use MySQL. Embedded databases are not supported.' }
@@ -30,7 +30,7 @@ $env:SERVER_PORT = '8080'
 $env:API_PROXY_TARGET = 'http://127.0.0.1:8080'
 if (-not $SkipBuild) {
     Push-Location $backend
-    # Clean removes obsolete compiled packages/configuration before unit checks and packaging. Full isolated MySQL/Redis verification is scripts/Test.ps1.
+    # Clean removes obsolete compiled packages/configuration before unit checks and packaging. Full isolated MySQL verification is scripts/Test.ps1.
     try { & mvn.cmd -q -ntp clean verify -DskipITs; if ($LASTEXITCODE -ne 0) { throw 'Backend build/tests failed.' } } finally { Pop-Location }
     Push-Location $frontend
     try {

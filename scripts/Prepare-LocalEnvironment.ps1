@@ -1,11 +1,10 @@
 param(
-    [string]$ProjectRoot = (Join-Path $PSScriptRoot '..'),
-    [Security.SecureString]$RedisPassword
+    [string]$ProjectRoot = (Join-Path $PSScriptRoot '..')
 )
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath($ProjectRoot)
 $output = Join-Path $root '.local/setup'
-$names = @('application.env', 'test.env', 'bootstrap.sql', 'redis.conf')
+$names = @('application.env', 'test.env', 'bootstrap.sql')
 foreach ($name in $names) {
     if (Test-Path -LiteralPath (Join-Path $output $name)) {
         throw 'Generated setup files already exist. Nothing was overwritten; review the existing private files.'
@@ -39,12 +38,6 @@ if (-not $identity.COOKIE_SECURE) { $identity.COOKIE_SECURE = 'false' }
 $appPassword = New-LocalSecret
 $testPassword = New-LocalSecret
 $e2ePassword = New-LocalSecret
-$redisSecret = if ($RedisPassword) { [Net.NetworkCredential]::new('', $RedisPassword).Password } else { New-LocalSecret }
-# Starter files are consumed by both a literal .env loader and Docker Compose / Redis config.
-# Limit imported secrets to a token alphabet so none of these formats can reinterpret them.
-if ($redisSecret -cnotmatch '^[A-Za-z0-9_-]{1,128}$') {
-    throw 'For generated starter files, use a Redis password of 1-128 letters, digits, underscores or hyphens. Configure other characters manually instead.'
-}
 $schema = Get-Content -LiteralPath (Join-Path $PSScriptRoot '../deploy/mysql/schema.sql') -Raw -Encoding UTF8
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $app = @"
@@ -54,13 +47,6 @@ COOKIE_SECURE=$($identity.COOKIE_SECURE)
 DB_URL=jdbc:mysql://127.0.0.1:3306/cloud_novel?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&sslMode=DISABLED&allowPublicKeyRetrieval=true
 DB_USERNAME=cloud_novel_app
 DB_PASSWORD=$appPassword
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_USERNAME=
-REDIS_PASSWORD=$redisSecret
-REDIS_DATABASE=0
-REDIS_NAMESPACE=cloud-novel:session
-REDIS_SSL=false
 BOOK_STORAGE=./data/books
 "@
 $test = @"
@@ -70,10 +56,6 @@ TEST_DB_USERNAME=cloud_novel_test
 TEST_DB_PASSWORD=$testPassword
 E2E_DB_USERNAME=cloud_novel_e2e
 E2E_DB_PASSWORD=$e2ePassword
-TEST_REDIS_HOST=127.0.0.1
-TEST_REDIS_PORT=6379
-TEST_REDIS_USERNAME=
-TEST_REDIS_PASSWORD=$redisSecret
 "@
 $sql = "-- PRIVATE generated credentials. Execute manually as your local DBA; never commit or share.
 -- Fresh installation only: there is deliberately no DROP, ALTER USER or destructive reset.
@@ -92,22 +74,9 @@ $schema
 
 "@
 }
-$redis = @"
-# Container-only config: compose publishes this service on host loopback, never 0.0.0.0.
-bind 0.0.0.0
-protected-mode yes
-port 6379
-requirepass $redisSecret
-dir /data
-appendonly yes
-appendfsync everysec
-maxmemory 256mb
-maxmemory-policy noeviction
-"@
 Write-NewPrivateFile 'application.env' ($app + [Environment]::NewLine)
 Write-NewPrivateFile 'test.env' ($test + [Environment]::NewLine)
 Write-NewPrivateFile 'bootstrap.sql' $sql
-Write-NewPrivateFile 'redis.conf' ($redis + [Environment]::NewLine)
 Write-Host "Private setup files generated under $output"
 Write-Host 'No database, user account, Windows service, Docker container or existing .env was changed.'
-Write-Host 'Follow docs/mysql-redis-setup.md to inspect and apply them yourself. Do not paste these files into chat.'
+Write-Host 'Follow docs/mysql-setup.md to inspect and apply them yourself. Do not paste these files into chat.'
