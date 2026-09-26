@@ -186,12 +186,12 @@ test('mobile visitor reads public text, keeps local notes, and never writes the 
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '我的书架' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /手机验收读本/ })).toBeVisible();
   await expectAccessible(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByLabel('搜索书名或作者').fill('手机验收');
-  await page.locator('.book-card').click();
+  await page.getByRole('link', { name: /手机验收读本/ }).click();
   await expectAccessible(page);
   await page.getByRole('link', { name: '开始阅读' }).click();
   await expect(page.locator('.chapter-heading h1')).toHaveText('第一章 清晨');
@@ -230,8 +230,9 @@ test('mobile visitor reads public text, keeps local notes, and never writes the 
   ).toBe(204);
 });
 
-test('empty public shelf has no detected WCAG A/AA violations', async ({ page }) => {
+test('empty public galaxy has no detected WCAG A/AA violations', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '书架还在整理中' })).toBeVisible();
+  await expect(page.getByText('还没有公开的书')).toBeVisible();
   await expectAccessible(page);
 });
