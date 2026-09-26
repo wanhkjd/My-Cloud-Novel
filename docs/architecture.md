@@ -4,7 +4,7 @@
 
 这不是公共电子书聚合平台，也不是多用户网盘。站点只有一位主人；访客免登录访问经过明确公开的内容，并在各自浏览器保留自己的阅读记录。
 
-后端采用 **Controller → Service 接口 / 实现 → MyBatis Mapper / XML** 三层架构。当前存储固定为 MySQL + Redis + 私有磁盘。HTTP 路径与 JSON 保持兼容，但数据库切换不是自动迁移：旧数据只归档保留，不能把换连接地址当作已完成历史数据迁移。
+后端采用 **Controller → Service 接口 / 实现 → MyBatis Mapper / XML** 三层架构。当前存储固定为 MySQL + 私有磁盘。HTTP 路径与 JSON 保持兼容，但数据库切换不是自动迁移：旧数据只归档保留，不能把换连接地址当作已完成历史数据迁移。
 
 ```text
 浏览器（Vue / TypeScript）
@@ -13,7 +13,7 @@
   └─ 主人 Journal → 同源 /api
                        │
                  Spring Security
-          Spring Session → Redis 会话 / CSRF
+          Servlet 容器 HttpSession → 会话 / CSRF
                        ADMIN
                        │
      Controller：接收 DTO、身份判断、返回 VO / HTTP
@@ -105,13 +105,13 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 
 文件系统与数据库不是分布式事务。异常关机、磁盘权限问题或提交结果不确定时仍可能产生孤立文件 / 缺失原件，需要结合备份和日志人工核对；不要自动清理未知文件。内存同步锁不支持多实例部署，也不解决多设备同时阅读造成的时间重叠。
 
-所有业务表使用 MySQL InnoDB / utf8mb4；以外键、唯一约束和 CHECK 保证基本一致性。`deploy/mysql/schema.sql` 使用 CREATE TABLE IF NOT EXISTS，**只供你手工初始化新库，不负责升级已存在的表**。应用固定 `spring.sql.init.mode=never`，运行账户只需 SELECT / INSERT / UPDATE / DELETE。没有 H2 依赖或测试回退。步骤见 [MySQL / Redis 环境说明](mysql-redis-setup.md)。
+所有业务表使用 MySQL InnoDB / utf8mb4；以外键、唯一约束和 CHECK 保证基本一致性。`deploy/mysql/schema.sql` 使用 CREATE TABLE IF NOT EXISTS，**只供你手工初始化新库，不负责升级已存在的表**。应用固定 `spring.sql.init.mode=never`，运行账户只需 SELECT / INSERT / UPDATE / DELETE。没有 H2 依赖或测试回退。步骤见 [MySQL 环境说明](mysql-setup.md)。
 
 ## 登录会话与原件边界
 
-- Redis 使用 Spring Session 默认仓库，保存 HTTP 会话（安全上下文 / CSRF），空闲超时 12 小时。Cookie 为 `CLOUDNOVEL_SESSION`，HttpOnly、SameSite=Lax；公网 HTTPS 必须开启 Secure。登录轮换会话 ID，退出使 Redis 会话失效。
-- Redis 中不保存书籍、阅读进度、书签或时长的唯一副本。Redis 停机时会话相关请求和就绪检查可能失败，**不回退到内存会话**；会话被清除后需重新登录，MySQL 数据不会因此丢失。
-- 当前并未引入章节缓存、分布式锁或多实例阅读协调；Redis 仅解决会话外置，单实例事务同步锁仍是明确的部署边界。
+- Servlet 容器（Tomcat）HttpSession 保存 HTTP 会话（安全上下文 / CSRF），空闲超时 12 小时；CSRF 令牌随会话（`HttpSessionCsrfTokenRepository`）。Cookie 为 `CLOUDNOVEL_SESSION`，HttpOnly、SameSite=Lax；公网 HTTPS 必须开启 Secure。登录轮换会话 ID，退出使会话失效。
+- 会话只存于 Tomcat 进程内存，不保存书籍、阅读进度、书签或时长的唯一副本。进程重启或多实例部署时会话即失效，需重新登录；MySQL 数据不会因此丢失。
+- 当前并未引入章节缓存、分布式锁或多实例阅读协调；会话存于单进程内存，单实例事务同步锁仍是明确的部署边界。
 - 原始 TXT 使用 `LocalNovelFileStorage`，默认从 backend 启动时写入 `data/books/<UUID>.txt`，不丢失原编码字节，不放进前端 public / static。
 - `NovelFileStorage` 是原件读写 / 删除的适配接口。独立扩容时才新增 OSS / COS / S3 实现，并补充私有桶、权限下载、失败补偿与契约测试；当前没有任何云端桶或上传行为。
 
@@ -122,7 +122,7 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 | 方法 / 路径                           | 说明                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
 | GET /api/health                       | 进程存活状态                                                         |
-| GET /api/ready                        | MySQL / Redis 就绪状态，不公开连接详情                               |
+| GET /api/ready                        | MySQL 就绪状态，不公开连接详情                                       |
 | GET /api/auth/csrf                    | CSRF token 与 headerName                                             |
 | GET /api/auth/me                      | 当前会话是否为主人                                                   |
 | POST /api/auth/login                  | form-urlencoded 的 username / password，需 CSRF                      |
@@ -156,4 +156,4 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 4. 每 15 秒串行保存位置与会话，切章/离开时再次保存。会话按 UUID 和累计秒数重试，服务器不会重复增加旧请求中的秒数。
 5. 保存失败给出提示；页面仍打开时可以重试。未实现持久化离线 outbox，多标签/多设备间也不做同步锁。
 
-主人会话空闲超过 12 小时、主动退出或 Redis 会话被清除后需要重新登录；会话仍有效时，应用重启可继续读取 Redis 中的会话。修改管理员密码不会自动撤销已有会话，必要时应另行安排会话失效；不会因此删除 MySQL 中的书籍和记录。Cookie 名称、路径和安全属性统一由 application.yml 配置，Spring Boot / Spring Session 负责创建和清除。运行配置与部署注意事项以根 README 为准。
+主人会话空闲超过 12 小时或主动退出后需要重新登录；会话存于 Tomcat 进程内存，应用重启即失效、需重新登录。修改管理员密码不会自动撤销已有会话，必要时应另行安排会话失效；不会因此删除 MySQL 中的书籍和记录。Cookie 名称、路径和安全属性统一由 application.yml 配置，Servlet 容器负责创建和清除。运行配置与部署注意事项以根 README 为准。

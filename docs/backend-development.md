@@ -48,7 +48,7 @@ BookView requireReadableBook(String id, boolean owner);
 - 不在可能提前结束的方法体 try/catch 中假定 `@Transactional` 的 commit 已完成。只读统计使用 `@Transactional(readOnly = true)`。
 - SQL 一律使用 `#{parameter}` 绑定；列表不装载小说全文；章节插入以 200 条为一批，所有批次共用一个事务。
 - 不捕获异常后假装成功。可预期的“不存在 / 冲突”使用 BusinessException，交由 ApiExceptionHandler 返回 404 / 409；未知错误返回通用提示，日志用于诊断，不打印正文或密码。
-- 当前仅针对单应用实例。扩展到多实例时先重做业务并发方案，不能只依赖已外置的 Redis 会话，不能把内存同步锁当分布式锁。
+- 当前仅针对单应用实例。扩展到多实例时先重做业务并发方案与会话共享（当前会话在单进程内存），不能把内存同步锁当分布式锁。
 
 ## 四、每次新增或调整功能的顺序
 
@@ -69,7 +69,7 @@ BookView requireReadableBook(String id, boolean owner);
 mvn -B -ntp spotless:apply
 
 # 先在根目录加载 .env.test：scripts/Import-LocalConfig.ps1 -Mode Test
-# 完整验证：格式、单元/ArchUnit、真实 MySQL/Redis 集成、打包、JavaDoc
+# 完整验证：格式、单元/ArchUnit、真实 MySQL 集成、打包、JavaDoc
 mvn -B -ntp clean verify
 
 # 缺少基础设施时可显式仅做单元与构建检查，不是完整验收
@@ -83,12 +83,12 @@ JavaDoc 启用 doclint=all 和 failOnWarnings；缺失公开 API 文档或错误
 
 ## 六、配置与数据安全
 
-Spring Boot 运行配置只维护 `src/main/resources/application.yml`，不要再增加 application.properties 或内容重复的 dev / prod 文件。差异使用环境变量注入，敏感值不设仓库默认密码。Spring 配置类统一放在 `core.config`，优先使用框架原生 YAML 属性（例如 Spring Session Cookie），不要再写同值的自定义 Bean。修改 YAML 必须补 `ApplicationConfigurationTest`，修改 Mapper / 实体包名必须同步 XML 并通过 `MapperXmlTest` 和真实集成测试。
+Spring Boot 运行配置只维护 `src/main/resources/application.yml`，不要再增加 application.properties 或内容重复的 dev / prod 文件。差异使用环境变量注入，敏感值不设仓库默认密码。Spring 配置类统一放在 `core.config`，优先使用框架原生 YAML 属性（例如 server.servlet.session Cookie），不要再写同值的自定义 Bean。修改 YAML 必须补 `ApplicationConfigurationTest`，修改 Mapper / 实体包名必须同步 XML 并通过 `MapperXmlTest` 和真实集成测试。
 
-运行必须配置 MySQL 和 Redis，不得加入 H2 或其他嵌入式替代。`deploy/mysql/schema.sql` 只由用户 / DBA 手工执行，应用不能拥有建库、DROP 或授权能力。
+运行必须配置 MySQL，不得加入 H2 或其他嵌入式替代。`deploy/mysql/schema.sql` 只由用户 / DBA 手工执行，应用不能拥有建库、DROP 或授权能力。
 
-后端 `*IT` 由 Maven Failsafe 在 verify 执行：固定 `cloud_novel_test` 库与同名 DML 账户、Redis DB 15 和本次随机命名空间、临时原件目录。浏览器测试使用独立的 `cloud_novel_e2e` 库 / 账户和 Redis DB 14。测试仅接受 `.env.test` 中的 `TEST_*` / `E2E_*` 配置，拒绝 root / 业务账户，不继承真实 DB_URL；没有凭据必须明确失败，不得静默跳过。只清理专用库的合成数据和本次 Redis 键，严禁 FLUSHDB / FLUSHALL。
+后端 `*IT` 由 Maven Failsafe 在 verify 执行：固定 `cloud_novel_test` 库与同名 DML 账户、临时原件目录。浏览器测试使用独立的 `cloud_novel_e2e` 库 / 账户。测试仅接受 `.env.test` 中的 `TEST_*` / `E2E_*` 配置，拒绝 root / 业务账户，不继承真实 DB_URL；没有凭据必须明确失败，不得静默跳过。只清理专用库的合成数据。
 
 `NovelFileStorage` 是原件接口，当前实现为私有磁盘；不把路径 / bucket 细节泄漏给 Controller 和 Service。新增云适配器必须保留禁止覆盖、原字节读取、受控删除及异常补偿的语义。
 
-真实小说只在显式设置 NOVEL_TEST_FILE 时做只读解析，绝不进入 Git / CI。更新前停写，并协调备份 MySQL、原件目录和配置；旧数据库归档不会自动迁移到新库。操作步骤见 [MySQL / Redis 环境说明](mysql-redis-setup.md)。
+真实小说只在显式设置 NOVEL_TEST_FILE 时做只读解析，绝不进入 Git / CI。更新前停写，并协调备份 MySQL、原件目录和配置；旧数据库归档不会自动迁移到新库。操作步骤见 [MySQL 环境说明](mysql-setup.md)。

@@ -66,7 +66,7 @@ class IntegrationSettingsTest {
     }
 
     @Test
-    void rejectsConnectionOverridesIncludingEmptyRedisUrlBeforeOpeningConnections() {
+    void rejectsConnectionOverridesBeforeOpeningConnections() {
         for (String property : List.of("spring.datasource.jndi-name")) {
             for (String value : List.of("", "runtime-connection-must-not-be-used")) {
                 var environment = new MockEnvironment().withProperty(property, value);

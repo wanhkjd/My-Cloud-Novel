@@ -21,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-/** 用真实 HTTP Cookie（Tomcat 内存会话，无 Redis）验证登录、会话固定防护、登出失效与业务数据隔离。 */
+/** 用真实 HTTP Cookie（Tomcat 内存会话）验证登录、会话固定防护、登出失效与业务数据隔离。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class HttpSessionIT extends DatabaseIntegrationTest {
     @LocalServerPort int port;

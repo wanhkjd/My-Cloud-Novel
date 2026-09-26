@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
  INDEX idx_sessions_updated (updated_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Notes / reading impressions are persisted here, not in Redis.
+-- Notes / reading impressions are persisted here in MySQL.
 CREATE TABLE IF NOT EXISTS bookmarks (
  id VARCHAR(36) PRIMARY KEY,
  book_id VARCHAR(36) NOT NULL,
