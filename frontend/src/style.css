@@ -2269,7 +2269,7 @@ button.danger-text {
   --paper: #f5f2ea;
   --surface: #fffdf8;
   --ink: #233229;
-  --muted: #68736d;
+  --muted: #5c6659;
   --line: #dfe3dc;
   --accent: #2f5a47;
   --accent-soft: #e7efe8;
@@ -2465,6 +2465,9 @@ button.primary,
 .reader-header {
   background: #f6f3ebdd;
   backdrop-filter: blur(16px);
+}
+.reader-shell.night .reader-header {
+  background: #1e2521dd;
 }
 .chapter-heading h1 {
   letter-spacing: 0;
