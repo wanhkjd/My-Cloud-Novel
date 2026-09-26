@@ -48,6 +48,7 @@ it('submits a cleared timeline date to the API as null rather than an empty stri
   const book = makeBook({ timelineDate: '2019-05-01' });
   const fetchMock = vi
     .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ maxUploadBytes: 30 * 1024 * 1024 })))
     .mockResolvedValueOnce(new Response(JSON.stringify([book])))
     .mockResolvedValueOnce(new Response(JSON.stringify({ token: 't', headerName: 'X-CSRF-TOKEN' })))
     .mockResolvedValueOnce(new Response('', { status: 200 }))
@@ -92,6 +93,7 @@ it('keeps the named import result distinct while the book list is still loading'
   });
   const fetchMock = vi
     .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ maxUploadBytes: 30 * 1024 * 1024 })))
     .mockResolvedValueOnce(new Response('[]'))
     .mockResolvedValueOnce(
       new Response(JSON.stringify({ token: 'test-csrf', headerName: 'X-CSRF-TOKEN' })),
@@ -112,7 +114,7 @@ it('keeps the named import result distinct while the book list is still loading'
 
   try {
     expect(fetchMock).toHaveBeenNthCalledWith(
-      4,
+      5,
       '/api/books',
       expect.objectContaining({ method: 'GET' }),
     );
@@ -137,6 +139,7 @@ it('uploads a chosen cover image as multipart and refreshes the list', async () 
   const after = makeBook({ hasCover: true });
   const fetchMock = vi
     .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ maxUploadBytes: 30 * 1024 * 1024 })))
     .mockResolvedValueOnce(new Response(JSON.stringify([before])))
     .mockResolvedValueOnce(new Response(JSON.stringify({ token: 't', headerName: 'X-CSRF-TOKEN' })))
     .mockResolvedValueOnce(new Response(JSON.stringify(after), { status: 200 }))
@@ -169,4 +172,39 @@ it('describes separate MySQL and private original-file backups rather than the r
   expect(guidance).toContain('私有磁盘');
   expect(guidance).toContain('分别备份');
   expect(guidance).not.toContain('阅读记录和原始文件保存在后端数据目录中');
+});
+
+it('reflects the server-configured upload size limit in the hint', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ maxUploadBytes: 40 * 1024 * 1024 })))
+    .mockResolvedValueOnce(new Response('[]'));
+  vi.stubGlobal('fetch', fetchMock);
+  const page = mountAdmin();
+  await flushPromises();
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    1,
+    '/api/config',
+    expect.objectContaining({ method: 'GET' }),
+  );
+  expect(page.get('.upload-panel').text()).toContain('最大 40 MiB');
+});
+
+it('rejects a TXT larger than the server-configured limit before uploading', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ maxUploadBytes: 1 * 1024 * 1024 })))
+    .mockResolvedValueOnce(new Response('[]'));
+  vi.stubGlobal('fetch', fetchMock);
+  const page = mountAdmin();
+  await flushPromises();
+  const input = page.get('input[type="file"]');
+  const oversize = new File(['x'], 'big.txt', { type: 'text/plain' });
+  Object.defineProperty(oversize, 'size', { value: 2 * 1024 * 1024, configurable: true });
+  Object.defineProperty(input.element, 'files', { value: [oversize], configurable: true });
+  await input.trigger('change');
+  await page.get('form').trigger('submit');
+  await flushPromises();
+  expect(page.get('[role="alert"]').text()).toContain('不超过 1 MiB');
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });

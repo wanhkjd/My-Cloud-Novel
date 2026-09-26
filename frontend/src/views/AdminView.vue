@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { Upload, Pencil, Trash2, LockKeyhole, ArrowUpRight } from 'lucide-vue-next';
 import { errorMessage, jsonRequest, request } from '../lib/api';
 import { number, words } from '../lib/format';
 import CoverImage from '../components/CoverImage.vue';
-import type { Book } from '../lib/types';
+import type { AppConfig, Book } from '../lib/types';
 const books = ref<Book[]>([]);
 const loading = ref(true);
 const error = ref('');
@@ -13,6 +13,9 @@ const file = ref<File | null>(null);
 const fileInput = ref<HTMLInputElement>();
 const uploading = ref(false);
 const imported = ref<Book>();
+// 上传上限由后端 /api/config 下发，随外部配置变化；拉取失败时回退到内置默认 30 MiB。
+const maxUploadBytes = ref(30 * 1024 * 1024);
+const maxUploadMiB = computed(() => maxUploadBytes.value / 1024 / 1024);
 const selected = ref<Book | null>(null);
 const dialog = ref<HTMLDialogElement>();
 const coverFile = ref<HTMLInputElement>();
@@ -37,6 +40,16 @@ async function load() {
     loading.value = false;
   }
 }
+async function loadConfig() {
+  try {
+    const config = await request<AppConfig>('/api/config');
+    if (typeof config?.maxUploadBytes === 'number' && config.maxUploadBytes > 0) {
+      maxUploadBytes.value = config.maxUploadBytes;
+    }
+  } catch {
+    // 拉取失败时保留内置默认上限；后端仍以 413 拦截真正超限的上传。
+  }
+}
 function selectFile(event: Event) {
   file.value = (event.target as HTMLInputElement).files?.[0] ?? null;
 }
@@ -45,8 +58,8 @@ async function upload() {
   error.value = '';
   message.value = '';
   imported.value = undefined;
-  if (!file.value.name.toLowerCase().endsWith('.txt') || file.value.size > 25 * 1024 * 1024) {
-    error.value = '请选择不超过 25 MiB 的 TXT 小说。';
+  if (!file.value.name.toLowerCase().endsWith('.txt') || file.value.size > maxUploadBytes.value) {
+    error.value = `请选择不超过 ${maxUploadMiB.value} MiB 的 TXT 小说。`;
     return;
   }
   uploading.value = true;
@@ -146,7 +159,10 @@ async function remove(book: Book) {
     error.value = errorMessage(e);
   }
 }
-onMounted(load);
+onMounted(() => {
+  loadConfig();
+  load();
+});
 </script>
 <template>
   <div class="page admin-page">
@@ -169,7 +185,8 @@ onMounted(load);
         <span class="eyebrow">01 / 添一本新书</span>
         <h2>上传小说</h2>
         <p class="muted">
-          TXT · UTF-8 / GBK · 最大 25 MiB<br />自动识别章节与分卷，不会改动原始文件。
+          TXT · UTF-8 / GBK · 最大
+          {{ maxUploadMiB }} MiB<br />自动识别章节与分卷，不会改动原始文件。
         </p>
       </div>
       <form @submit.prevent="upload">

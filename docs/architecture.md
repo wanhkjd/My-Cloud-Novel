@@ -123,6 +123,7 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 | ------------------------------------- | -------------------------------------------------------------------- |
 | GET /api/health                       | 进程存活状态                                                         |
 | GET /api/ready                        | MySQL 就绪状态，不公开连接详情                                       |
+| GET /api/config                       | 公开上传约束：单文件字节上限，随 multipart 配置变化，供前端预检与提示 |
 | GET /api/auth/csrf                    | CSRF token 与 headerName                                             |
 | GET /api/auth/me                      | 当前会话是否为主人                                                   |
 | POST /api/auth/login                  | form-urlencoded 的 username / password，需 CSRF                      |
@@ -145,6 +146,8 @@ SQL 查询可返回 Entity 或明确的只读 VO 投影，不能接收 Web 请�
 | PATCH / DELETE /api/me/bookmarks/{id} | 主人编辑/删除书签                                                    |
 
 除公开 GET、登录、退出外，修改接口需要 ADMIN；所有修改请求还需同会话的 CSRF token。登录成功后 token 会轮换，客户端必须重新获取。不存在的进度当前以 HTTP 200 空响应表示；前端请求层将其处理为 null。
+
+TXT 上传体积上限由 `spring.servlet.multipart` 承载，并引用外部变量 `cloudnovel.upload.max-file-size` / `max-request-size`（缺省 30MB / 31MB；Spring 按 1024 进制解析，故 30MB 即 30 MiB），可在 `application-dev.yml` 灵活覆盖。运行期该上限经 `GET /api/config` 下发，前端据此渲染“最大 N MiB”提示并做上传前预检；真正超限的上传仍由后端返回 413（文案随配置的上限自动变化）。
 
 主要错误：400 参数/格式错误，401 未登录或错误凭据，403 角色/CSRF 不满足，404 不存在或不可见，409 重复文件/会话冲突。错误响应不包含服务器堆栈。
 

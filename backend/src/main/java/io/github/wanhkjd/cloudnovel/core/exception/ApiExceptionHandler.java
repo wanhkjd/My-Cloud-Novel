@@ -4,8 +4,10 @@ import io.github.wanhkjd.cloudnovel.dto.resp.ErrorView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,8 +22,18 @@ public class ApiExceptionHandler {
     /** 未预期故障的服务器日志。 */
     private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
-    /** 创建无状态的统一异常处理器。 */
-    public ApiExceptionHandler() {}
+    /** 单个 TXT 上传的字节上限，用于生成与配置一致的 413 文案。 */
+    private final long maxUploadBytes;
+
+    /**
+     * 记录当前的 multipart 单文件上限，使超限文案随外部配置变化。
+     *
+     * @param maxFileSize 框架解析后的单文件上限
+     */
+    public ApiExceptionHandler(
+            @Value("${spring.servlet.multipart.max-file-size}") DataSize maxFileSize) {
+        this.maxUploadBytes = maxFileSize.toBytes();
+    }
 
     /**
      * 把与协议无关的业务错误映射为 HTTP 状态。
@@ -79,7 +91,21 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorView> tooLarge() {
-        return ResponseEntity.status(413).body(new ErrorView("文件不能超过 25 MiB。"));
+        return ResponseEntity.status(413)
+                .body(new ErrorView("文件不能超过 " + formatMebibytes(maxUploadBytes) + " MiB。"));
+    }
+
+    /**
+     * 把字节上限渲染为便于阅读的 MiB 数：整除时取整数，否则保留原始小数。
+     *
+     * @param bytes 字节上限
+     * @return 用于文案的 MiB 表示
+     */
+    private static String formatMebibytes(long bytes) {
+        double mebibytes = bytes / (1024.0 * 1024.0);
+        return mebibytes == Math.floor(mebibytes)
+                ? String.valueOf((long) mebibytes)
+                : String.valueOf(mebibytes);
     }
 
     /**

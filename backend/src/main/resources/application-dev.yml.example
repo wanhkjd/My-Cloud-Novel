@@ -12,3 +12,8 @@ cloudnovel:
     username: admin
     password: replace-with-at-least-12-character-admin-password
   storage-directory: ./data/books
+  # 上传体积上限，可按部署环境灵活调整；缺省即 application.yml 内置的 30MB / 31MB。
+  # Spring 的 MB 按 1024 进制解析，故 30MB 即 30 MiB；请求上限略大于文件上限以容纳 multipart 头部。
+  upload:
+    max-file-size: 30MB
+    max-request-size: 31MB

@@ -15,6 +15,9 @@ export interface Book {
   canRead: boolean;
   preface: string;
 }
+export interface AppConfig {
+  maxUploadBytes: number;
+}
 export interface ChapterSummary {
   index: number;
   title: string;

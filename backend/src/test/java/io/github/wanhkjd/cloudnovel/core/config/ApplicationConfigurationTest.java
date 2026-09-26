@@ -89,8 +89,8 @@ class ApplicationConfigurationTest {
         assertThat(server.getAddress().getHostAddress()).isEqualTo("127.0.0.1");
         assertThat(server.getPort()).isEqualTo(8080);
         var multipart = binder.bind("spring.servlet.multipart", MultipartProperties.class).get();
-        assertThat(multipart.getMaxFileSize()).isEqualTo(DataSize.ofMegabytes(25));
-        assertThat(multipart.getMaxRequestSize()).isEqualTo(DataSize.ofMegabytes(26));
+        assertThat(multipart.getMaxFileSize()).isEqualTo(DataSize.ofMegabytes(30));
+        assertThat(multipart.getMaxRequestSize()).isEqualTo(DataSize.ofMegabytes(31));
         assertThat(environment.getProperty("app.storage-directory")).isEqualTo("./data/books");
         assertThat(environment.getProperty("app.admin.username")).isEqualTo("synthetic-owner");
         assertThat(environment.getProperty("app.admin.password"))
@@ -106,6 +106,20 @@ class ApplicationConfigurationTest {
                 .isEqualTo("never");
         assertThat(environment.getProperty("server.error.include-message")).isEqualTo("never");
         assertThat(environment.getProperty("server.error.include-stacktrace")).isEqualTo("never");
+    }
+
+    @Test
+    void uploadCeilingsRecomposeFromDevNamespaceOverrides() throws IOException {
+        var environment =
+                yamlEnvironment()
+                        .withProperty("cloudnovel.upload.max-file-size", "40MB")
+                        .withProperty("cloudnovel.upload.max-request-size", "42MB");
+        var multipart =
+                Binder.get(environment)
+                        .bind("spring.servlet.multipart", MultipartProperties.class)
+                        .get();
+        assertThat(multipart.getMaxFileSize()).isEqualTo(DataSize.ofMegabytes(40));
+        assertThat(multipart.getMaxRequestSize()).isEqualTo(DataSize.ofMegabytes(42));
     }
 
     @Test
