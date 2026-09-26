@@ -3,6 +3,7 @@ import { nextTick, onMounted, reactive, ref } from 'vue';
 import { Upload, Pencil, Trash2, LockKeyhole, ArrowUpRight } from 'lucide-vue-next';
 import { errorMessage, jsonRequest, request } from '../lib/api';
 import { number, words } from '../lib/format';
+import CoverImage from '../components/CoverImage.vue';
 import type { Book } from '../lib/types';
 const books = ref<Book[]>([]);
 const loading = ref(true);
@@ -14,6 +15,7 @@ const uploading = ref(false);
 const imported = ref<Book>();
 const selected = ref<Book | null>(null);
 const dialog = ref<HTMLDialogElement>();
+const coverFile = ref<HTMLInputElement>();
 const saving = ref(false);
 const editError = ref('');
 const form = reactive({
@@ -22,6 +24,7 @@ const form = reactive({
   description: '',
   catalogPublished: false,
   textPublished: false,
+  timelineDate: '',
 });
 async function load() {
   loading.value = true;
@@ -63,6 +66,7 @@ async function upload() {
 async function edit(book: Book) {
   selected.value = book;
   Object.assign(form, book);
+  form.timelineDate = book.timelineDate ?? '';
   editError.value = '';
   await nextTick();
   dialog.value?.showModal();
@@ -72,7 +76,10 @@ async function save() {
   saving.value = true;
   editError.value = '';
   try {
-    await jsonRequest('/api/books/' + selected.value.id, 'PATCH', form);
+    await jsonRequest('/api/books/' + selected.value.id, 'PATCH', {
+      ...form,
+      timelineDate: form.timelineDate || null,
+    });
     dialog.value?.close();
     selected.value = null;
     message.value = '书籍信息与公开设置已保存。';
@@ -81,6 +88,45 @@ async function save() {
     editError.value = errorMessage(e);
   } finally {
     saving.value = false;
+  }
+}
+async function uploadCover(event: Event) {
+  const picked = (event.target as HTMLInputElement).files?.[0];
+  if (!picked || !selected.value) return;
+  editError.value = '';
+  if (!picked.type.startsWith('image/') || picked.size > 2 * 1024 * 1024) {
+    editError.value = '请选择不超过 2 MiB 的 JPEG / PNG / WebP 图片作为封面。';
+    if (coverFile.value) coverFile.value.value = '';
+    return;
+  }
+  try {
+    const data = new FormData();
+    data.append('file', picked);
+    const updated = await request<Book>('/api/books/' + selected.value.id + '/cover', {
+      method: 'POST',
+      body: data,
+    });
+    selected.value = updated;
+    Object.assign(form, updated);
+    form.timelineDate = updated.timelineDate ?? '';
+    message.value = '封面已更新。';
+    await load();
+  } catch (e) {
+    editError.value = errorMessage(e);
+  } finally {
+    if (coverFile.value) coverFile.value.value = '';
+  }
+}
+async function removeCover() {
+  if (!selected.value) return;
+  editError.value = '';
+  try {
+    await jsonRequest('/api/books/' + selected.value.id + '/cover', 'DELETE');
+    selected.value = { ...selected.value, hasCover: false };
+    message.value = '封面已移除。';
+    await load();
+  } catch (e) {
+    editError.value = errorMessage(e);
   }
 }
 async function remove(book: Book) {
@@ -221,7 +267,44 @@ onMounted(load);
         </div>
         <label>书名<input v-model="form.title" required maxlength="120" /></label
         ><label>作者<input v-model="form.author" required maxlength="100" /></label
-        ><label>简介<textarea v-model="form.description" rows="4" maxlength="4000" /></label>
+        ><label>简介<textarea v-model="form.description" rows="4" maxlength="4000" /></label
+        ><label
+          >时间轴日期<input v-model="form.timelineDate" type="date" /><span class="muted small"
+            >留空则按导入时间排列于银河时间轴。</span
+          ></label
+        >
+        <fieldset class="cover-fields">
+          <legend>封面</legend>
+          <div class="cover-editor">
+            <CoverImage
+              :id="selected.id"
+              :title="form.title"
+              :author="form.author"
+              :has-cover="selected.hasCover"
+              small
+            />
+            <div class="cover-actions">
+              <label class="file-label"
+                ><Upload :size="18" /><span>{{ selected.hasCover ? '更换封面' : '上传封面' }}</span
+                ><input
+                  ref="coverFile"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  aria-label="选择封面图片"
+                  @change="uploadCover"
+              /></label>
+              <button
+                v-if="selected.hasCover"
+                type="button"
+                class="icon-button danger-text"
+                @click="removeCover"
+              >
+                移除封面
+              </button>
+              <p class="muted small">JPEG / PNG / WebP · 最大 2 MiB · 立即生效。</p>
+            </div>
+          </div>
+        </fieldset>
         <fieldset class="publication-fields">
           <legend>公开范围</legend>
           <label class="check-label"
