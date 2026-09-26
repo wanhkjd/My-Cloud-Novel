@@ -23,7 +23,7 @@
 /.local-dev.json
 *.tsbuildinfo
 
-# Generated credentials, provisioning SQL and local Redis configuration
+# Generated credentials and provisioning SQL
 /.local/
 
 # Private runtime configuration (secrets): keep application-dev.yml local, commit only the template
