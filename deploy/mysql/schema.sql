@@ -1,5 +1,8 @@
 -- MySQL 8.0.16+ / 8.4: execute manually with a schema-management account.
 -- Runtime users need SELECT, INSERT, UPDATE and DELETE only. This file does not upgrade existing tables.
+-- 既有库升级（新库直接建表，无需执行）：
+--   ALTER TABLE books ADD COLUMN timeline_date DATE NULL AFTER created_at;
+--   ALTER TABLE books ADD COLUMN cover_path VARCHAR(255) NULL;
 CREATE TABLE IF NOT EXISTS books (
  id VARCHAR(36) PRIMARY KEY,
  title VARCHAR(120) NOT NULL,
@@ -14,6 +17,8 @@ CREATE TABLE IF NOT EXISTS books (
  catalog_published BOOLEAN NOT NULL DEFAULT FALSE,
  text_published BOOLEAN NOT NULL DEFAULT FALSE,
  created_at BIGINT NOT NULL,
+ timeline_date DATE NULL COMMENT '自定义时间轴日期，可空；为空时前端回退 created_at',
+ cover_path VARCHAR(255) NULL COMMENT '封面对象键，如 covers/{id}.jpg；绝不下发前端',
  CONSTRAINT chk_books_visibility CHECK (NOT text_published OR catalog_published),
  INDEX idx_books_created (created_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
