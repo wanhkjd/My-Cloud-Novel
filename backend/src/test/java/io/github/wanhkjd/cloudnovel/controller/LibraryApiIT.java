@@ -20,6 +20,23 @@ class LibraryApiIT extends DatabaseIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
 
+    byte[] png() {
+        return new byte[] {
+            (byte) 0x89,
+            'P',
+            'N',
+            'G',
+            (byte) 0x0D,
+            (byte) 0x0A,
+            (byte) 0x1A,
+            (byte) 0x0A,
+            0,
+            0,
+            0,
+            0
+        };
+    }
+
     String upload() throws Exception {
         var file =
                 new MockMultipartFile(
@@ -413,5 +430,66 @@ class LibraryApiIT extends DatabaseIntegrationTest {
         mvc.perform(get("/api/me/progress/" + id).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(content().string(""));
+    }
+
+    @Test
+    void ownerUploadsCoverThenBookReportsHasCoverWithoutExposingPath() throws Exception {
+        String id = upload();
+        publish(id, false);
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasCover").value(true))
+                .andExpect(jsonPath("$.coverPath").doesNotExist());
+        mvc.perform(get("/api/books/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasCover").value(true))
+                .andExpect(jsonPath("$.coverPath").doesNotExist());
+    }
+
+    @Test
+    void coverUploadRejectsNonImageOversizeAndUnauthorizedCallers() throws Exception {
+        String id = upload();
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(csrf()))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(new MockMultipartFile("file", "c.png", "image/png", png()))
+                                .with(user("visitor").roles("USER"))
+                                .with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(
+                                        new MockMultipartFile(
+                                                "file",
+                                                "x.png",
+                                                "image/png",
+                                                "<svg xmlns=\"a\"></svg>"
+                                                        .getBytes(StandardCharsets.UTF_8)))
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isBadRequest());
+        byte[] oversize = new byte[2 * 1024 * 1024 + 1];
+        System.arraycopy(png(), 0, oversize, 0, 8);
+        mvc.perform(
+                        multipart("/api/books/" + id + "/cover")
+                                .file(
+                                        new MockMultipartFile(
+                                                "file", "big.png", "image/png", oversize))
+                                .with(user("admin").roles("ADMIN"))
+                                .with(csrf()))
+                .andExpect(status().isBadRequest());
     }
 }

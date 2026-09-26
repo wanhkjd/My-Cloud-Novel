@@ -109,6 +109,20 @@ public class LibraryController {
     }
 
     /**
+     * 为指定书籍上传或替换封面；服务层按魔数校验真实类型并限制体积。
+     *
+     * @param id 目标书籍标识
+     * @param file 上传的图片（jpeg/png/webp，≤2 MiB）
+     * @return 更新后的书籍视图（{@code hasCover=true}，不含存储路径）
+     * @throws IOException 写入封面文件失败时抛出
+     */
+    @PostMapping("/{id}/cover")
+    public BookView uploadCover(@PathVariable String id, @RequestParam("file") MultipartFile file)
+            throws IOException {
+        return libraryService.setCover(id, file.getBytes());
+    }
+
+    /**
      * 修改书目与公开设置。
      *
      * @param id 书籍 UUID
