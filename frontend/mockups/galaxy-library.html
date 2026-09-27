@@ -98,76 +98,87 @@
       .timeline-book.left .timeline-date {
         text-align: right;
       }
-      .timeline-card {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        border-radius: 16px;
-        background: rgba(20, 28, 58, 0.72);
-        border: 1px solid rgba(142, 162, 255, 0.22);
-        color: var(--ink);
-        text-decoration: none;
-        backdrop-filter: blur(6px);
-        transition:
-          transform 0.3s ease,
-          box-shadow 0.3s ease,
-          border-color 0.3s ease;
-      }
-      .timeline-card:hover {
-        transform: translateY(-4px);
-        border-color: rgba(142, 162, 255, 0.55);
-        box-shadow: 0 12px 40px rgba(10, 16, 40, 0.6);
-      }
-      .cover-thumb {
-        width: 58px;
-        height: 82px;
-        border-radius: 10px;
-        flex: none;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 6px 4px;
-        font-family: var(--serif);
-        font-size: 12px;
-        line-height: 1.35;
-        letter-spacing: 1px;
-        color: #f3efe2;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
-      }
-      .timeline-card-copy {
+      .book-cover {
+        position: relative;
+        isolation: isolate;
+        width: 150px;
+        min-height: 212px;
+        padding: 24px 18px;
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
-        min-width: 0;
+        align-items: center;
+        text-align: center;
+        background: #e5dcc4;
+        color: #494c34;
+        border-radius: 6px 10px 10px 6px;
+        border-left: 5px solid rgba(0, 0, 0, 0.12);
+        box-shadow:
+          0 18px 40px rgba(4, 8, 22, 0.7),
+          0 0 26px rgba(142, 162, 255, 0.14);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
       }
-      .timeline-title {
-        font-size: 1.15rem;
-        font-weight: 600;
+      .timeline-book.left .book-cover {
+        margin-left: auto; /* 左侧封面靠近中央银河 */
       }
-      .timeline-author {
-        color: #c2ccf2;
-        font-size: 0.9rem;
+      .book-cover:hover {
+        transform: translateY(-5px);
+        box-shadow:
+          0 24px 52px rgba(4, 8, 22, 0.82),
+          0 0 36px rgba(142, 162, 255, 0.3);
       }
-      .timeline-description {
-        color: #ccd5f5;
-        font-size: 0.9rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+      .book-cover::before {
+        content: '';
+        position: absolute;
+        inset: 10px;
+        border: 1px solid currentColor;
+        opacity: 0.18;
+        z-index: -1;
       }
-      .timeline-meta {
-        color: #aeb9e4;
-        font-size: 0.82rem;
-        margin-top: auto;
+      .book-cover::after {
+        content: '';
+        position: absolute;
+        left: 7px;
+        top: 0;
+        bottom: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.4);
       }
-      .timeline-flag {
-        margin-left: 0.5rem;
-        padding: 0.05rem 0.5rem;
-        border-radius: 999px;
-        background: rgba(142, 162, 255, 0.18);
-        color: #cfe0ff;
+      .cover-edition {
+        font-size: 9px;
+        letter-spacing: 3px;
+      }
+      .cover-title {
+        font: 600 24px/1.6 var(--serif);
+        letter-spacing: 4px;
+        margin: 22px 0 12px;
+        flex: 1;
+        overflow-wrap: anywhere;
+      }
+      .cover-author {
+        font-size: 10px;
+        letter-spacing: 2px;
+        margin: 0 0 18px;
+      }
+      .cover-seal {
+        width: 20px;
+        height: 23px;
+        display: grid;
+        place-items: center;
+        border: 1px solid currentColor;
+        font: 13px var(--serif);
+      }
+      .tone-1 {
+        background: #d3dfce;
+        color: #39523d;
+      }
+      .tone-2 {
+        background: #d3dfe0;
+        color: #3c5760;
+      }
+      .tone-3 {
+        background: #e5d6ca;
+        color: #705744;
       }
       @media (max-width: 720px) {
         .timeline-book,
@@ -183,12 +194,14 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .timeline-card {
+        .book-cover {
           transition: none;
         }
-        .timeline-card:hover {
+        .book-cover:hover {
           transform: none;
-          box-shadow: none;
+          box-shadow:
+            0 18px 40px rgba(4, 8, 22, 0.7),
+            0 0 26px rgba(142, 162, 255, 0.14);
         }
       }
     </style>
@@ -205,74 +218,50 @@
         <ol class="timeline-list">
           <li class="timeline-book right">
             <time class="timeline-date">2024 · 01</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #3a4b6e, #232f47)">归乡记</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">归乡记</span>
-                <span class="timeline-author">苏晚</span>
-                <span class="timeline-description">列车穿过隧道的那一刻她才明白，故乡早已成了地图上一处需要导航才能抵达的地名。</span>
-                <span class="timeline-meta">28 章 · 12.4 万字 <span class="timeline-flag">可阅读</span></span>
-              </div>
+            <div class="book-cover tone-2" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">归乡记</div>
+              <span class="cover-author">苏晚 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
           <li class="timeline-book left">
             <time class="timeline-date">2023 · 06</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #2f4b3a, #22382b)">长夜行舟</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">长夜行舟</span>
-                <span class="timeline-author">陆时砚</span>
-                <span class="timeline-description">灯塔熄灭之后，海面上只剩下桨声，和两个人谁都不肯先开口的沉默。</span>
-                <span class="timeline-meta">41 章 · 19.7 万字 <span class="timeline-flag">可阅读</span></span>
-              </div>
+            <div class="book-cover tone-1" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">长夜行舟</div>
+              <span class="cover-author">陆时砚 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
           <li class="timeline-book right">
             <time class="timeline-date">2022 · 11</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #5a4636, #3a2c22)">春山可望</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">春山可望</span>
-                <span class="timeline-author">沈砚</span>
-                <span class="timeline-description">她把整座春天寄进信封，却在邮筒前想起，收信的人已经搬去了没有山的城市。</span>
-                <span class="timeline-meta">33 章 · 15.2 万字</span>
-              </div>
+            <div class="book-cover tone-3" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">春山可望</div>
+              <span class="cover-author">沈砚 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
           <li class="timeline-book left">
             <time class="timeline-date">2022 · 02</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #4a3f63, #2f2842)">星子与灯</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">星子与灯</span>
-                <span class="timeline-author">林未晞</span>
-                <span class="timeline-description">天文台的最后一夜，他教她辨认那些正在死去的星，说它们的光还要再走上千年。</span>
-                <span class="timeline-meta">36 章 · 16.8 万字 <span class="timeline-flag">可阅读</span></span>
-              </div>
+            <div class="book-cover" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">星子与灯</div>
+              <span class="cover-author">林未晞 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
           <li class="timeline-book right">
             <time class="timeline-date">2021 · 09</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #2f4a63, #22323f)">夜航船札记</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">夜航船札记</span>
-                <span class="timeline-author">佚名</span>
-                <span class="timeline-description">舟中夜话，天文地理无所不谈；士子鼾睡时，摇橹的船夫悄悄把话都记了下来。</span>
-                <span class="timeline-meta">52 章 · 8.6 万字</span>
-              </div>
+            <div class="book-cover tone-2" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">夜航船札记</div>
+              <span class="cover-author">佚名 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
           <li class="timeline-book left">
             <time class="timeline-date">2021 · 03</time>
-            <div class="timeline-card">
-              <div class="cover-thumb" style="background: linear-gradient(160deg, #5a3a4a, #3a2530)">山海拾遗</div>
-              <div class="timeline-card-copy">
-                <span class="timeline-title">山海拾遗</span>
-                <span class="timeline-author">佚名</span>
-                <span class="timeline-description">拾遗者行至世界的边缘，发现群山与大海不过是同一卷古籍摊开的两页。</span>
-                <span class="timeline-meta">19 章 · 6.3 万字</span>
-              </div>
+            <div class="book-cover tone-3" aria-hidden="true">
+              <span class="cover-edition">藏 书 星 河</span>
+              <div class="cover-title">山海拾遗</div>
+              <span class="cover-author">佚名 · 著</span><span class="cover-seal">阅</span>
             </div>
           </li>
         </ol>

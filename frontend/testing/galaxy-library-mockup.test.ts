@@ -25,11 +25,14 @@ describe('galaxy library UI mockup', () => {
     expect(html).toContain('prefers-reduced-motion');
   });
 
-  it('lays out sample book cards along the timeline', () => {
+  it('shows each book as a cover only, without a synopsis', () => {
     const cards = html.match(/class="timeline-book/g) ?? [];
     expect(cards.length).toBeGreaterThanOrEqual(5);
-    expect(html).toContain('timeline-card');
-    expect(html).toContain('timeline-title');
+    expect(html).toContain('book-cover');
+    expect(html).toContain('cover-title');
+    // 只保留封面：不再有简介，也不再有承载简介的卡片文案块。
+    expect(html).not.toContain('timeline-description');
+    expect(html).not.toContain('timeline-card');
   });
 
   it('drops the 云上书房 brand icon and the footer tagline', () => {
