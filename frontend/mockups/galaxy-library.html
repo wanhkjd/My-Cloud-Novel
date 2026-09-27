@@ -20,451 +20,372 @@
       }
       body {
         min-height: 100vh;
-        background: #05060f;
+        background: radial-gradient(1200px 900px at 50% 35%, #0a1030 0%, #070a1c 55%, #05060f 100%);
         color: var(--ink);
         font-family: var(--sans);
-        overflow-x: hidden;
+        overflow: hidden;
       }
-      /* 背景：固定全屏 canvas，星空与动态银河都画在这里。 */
-      #sky {
+      /* 粒子星野：铺满全屏、置于最底层，鼠标事件交给上层书星处理。 */
+      #field {
         position: fixed;
         inset: 0;
         width: 100%;
         height: 100%;
         z-index: 0;
-        pointer-events: none;
         display: block;
       }
-      .galaxy-view {
+      .starmap {
         position: relative;
         z-index: 1;
         min-height: 100vh;
+        pointer-events: none;
       }
-      .galaxy-head {
+      .head {
         text-align: center;
-        padding: 12vh 1.5rem 2vh;
+        padding: 12vh 1.5rem 0;
       }
-      .galaxy-head .eyebrow {
+      .head .eyebrow {
         font-size: 12px;
         letter-spacing: 0.5em;
         color: #9fb0ff;
         margin: 0 0 1rem;
       }
-      .galaxy-head h1 {
+      .head h1 {
         font-family: var(--serif);
         font-weight: 600;
         font-size: clamp(30px, 5vw, 52px);
-        letter-spacing: 0.15em;
+        letter-spacing: 0.16em;
         margin: 0;
-        text-shadow: 0 0 24px rgba(142, 162, 255, 0.5);
+        text-shadow: 0 0 26px rgba(142, 162, 255, 0.5);
       }
-      .galaxy-head p {
+      .head p {
         color: #c2ccf2;
         font-size: 14px;
         margin: 1rem auto 0;
         max-width: 30rem;
         line-height: 1.9;
       }
-      .galaxy-timeline {
-        position: relative;
-        padding: 8vh 0 16vh;
-      }
-      .timeline-list {
-        list-style: none;
-        margin: 0 auto;
-        padding: 0;
-        max-width: 1100px;
-      }
-      .timeline-book {
-        position: relative;
-        width: min(420px, 82vw);
-        margin: 7vh auto;
-      }
-      .timeline-book.right {
-        margin-right: 0;
-        margin-left: calc(50% + 44px);
-      }
-      .timeline-book.left {
-        margin-left: 0;
-        margin-right: calc(50% + 44px);
-      }
-      .timeline-date {
-        display: block;
-        font-size: 0.85rem;
-        letter-spacing: 0.08em;
-        color: #9fb0ff;
-        margin-bottom: 0.5rem;
-      }
-      .timeline-book.left .timeline-date {
-        text-align: right;
-      }
-      .book-cover {
-        position: relative;
-        isolation: isolate;
-        width: 150px;
-        min-height: 212px;
-        padding: 24px 18px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        background: #e5dcc4;
-        color: #494c34;
-        border-radius: 6px 10px 10px 6px;
-        border-left: 5px solid rgba(0, 0, 0, 0.12);
-        box-shadow:
-          0 18px 40px rgba(4, 8, 22, 0.7),
-          0 0 26px rgba(142, 162, 255, 0.14);
+      /* 书星点击后浮出的小卡片：书名 + 进入。 */
+      .book-pop {
+        position: absolute;
+        z-index: 3;
+        transform: translate(-50%, calc(-100% - 18px));
+        min-width: 168px;
+        padding: 14px 16px 15px;
+        border-radius: 14px;
+        background: rgba(16, 22, 46, 0.82);
+        border: 1px solid rgba(142, 162, 255, 0.35);
+        box-shadow: 0 16px 44px rgba(4, 8, 22, 0.66);
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+        opacity: 0;
+        visibility: hidden;
         transition:
-          transform 0.3s ease,
-          box-shadow 0.3s ease;
+          opacity 0.18s ease,
+          transform 0.18s ease;
       }
-      .timeline-book.left .book-cover {
-        margin-left: auto; /* 左侧封面靠近中央银河 */
+      .book-pop.open {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, calc(-100% - 26px));
       }
-      .book-cover:hover {
-        transform: translateY(-5px);
-        box-shadow:
-          0 24px 52px rgba(4, 8, 22, 0.82),
-          0 0 36px rgba(142, 162, 255, 0.3);
-      }
-      .book-cover::before {
+      .book-pop::after {
         content: '';
         position: absolute;
-        inset: 10px;
-        border: 1px solid currentColor;
-        opacity: 0.18;
-        z-index: -1;
+        left: 50%;
+        bottom: -7px;
+        width: 12px;
+        height: 12px;
+        transform: translateX(-50%) rotate(45deg);
+        background: rgba(16, 22, 46, 0.82);
+        border-right: 1px solid rgba(142, 162, 255, 0.35);
+        border-bottom: 1px solid rgba(142, 162, 255, 0.35);
       }
-      .book-cover::after {
-        content: '';
-        position: absolute;
-        left: 7px;
-        top: 0;
-        bottom: 0;
-        border-left: 1px solid rgba(255, 255, 255, 0.4);
+      .pop-title {
+        display: block;
+        font-family: var(--serif);
+        font-size: 1.05rem;
+        letter-spacing: 1px;
       }
-      .cover-edition {
-        font-size: 9px;
-        letter-spacing: 3px;
+      .pop-author {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+        color: #aeb9e4;
       }
-      .cover-title {
-        font: 600 24px/1.6 var(--serif);
-        letter-spacing: 4px;
-        margin: 22px 0 12px;
-        flex: 1;
-        overflow-wrap: anywhere;
+      .pop-enter {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 11px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(142, 162, 255, 0.16);
+        border: 1px solid rgba(142, 162, 255, 0.4);
+        color: #dbe4ff;
+        font-size: 12px;
+        text-decoration: none;
+        cursor: pointer;
       }
-      .cover-author {
-        font-size: 10px;
-        letter-spacing: 2px;
-        margin: 0 0 18px;
-      }
-      .cover-seal {
-        width: 20px;
-        height: 23px;
-        display: grid;
-        place-items: center;
-        border: 1px solid currentColor;
-        font: 13px var(--serif);
-      }
-      .tone-1 {
-        background: #d3dfce;
-        color: #39523d;
-      }
-      .tone-2 {
-        background: #d3dfe0;
-        color: #3c5760;
-      }
-      .tone-3 {
-        background: #e5d6ca;
-        color: #705744;
-      }
-      @media (max-width: 720px) {
-        .timeline-book,
-        .timeline-book.left,
-        .timeline-book.right {
-          width: min(460px, 86vw);
-          margin-left: auto;
-          margin-right: auto;
-          padding-left: 46px;
-        }
-        .timeline-book.left .timeline-date {
-          text-align: left;
-        }
+      .pop-enter:hover {
+        background: rgba(142, 162, 255, 0.3);
       }
       @media (prefers-reduced-motion: reduce) {
-        .book-cover {
+        .book-pop {
           transition: none;
-        }
-        .book-cover:hover {
-          transform: none;
-          box-shadow:
-            0 18px 40px rgba(4, 8, 22, 0.7),
-            0 0 26px rgba(142, 162, 255, 0.14);
         }
       }
     </style>
   </head>
   <body>
-    <canvas id="sky" aria-hidden="true"></canvas>
-    <div class="galaxy-view">
-      <header class="galaxy-head">
-        <p class="eyebrow">READING TIMELINE</p>
+    <canvas id="field" aria-hidden="true"></canvas>
+    <div class="starmap">
+      <header class="head">
+        <p class="eyebrow">READING CONSTELLATION</p>
         <h1>藏书星河</h1>
-        <p>沿着银河一路向下，每一颗亮起的星，都是走过的一本书。</p>
+        <p>每一本书都是一颗星，点亮它，翻开这一本。</p>
       </header>
-      <div class="galaxy-timeline">
-        <ol class="timeline-list">
-          <li class="timeline-book right">
-            <time class="timeline-date">2024 · 01</time>
-            <div class="book-cover tone-2" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">归乡记</div>
-              <span class="cover-author">苏晚 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-          <li class="timeline-book left">
-            <time class="timeline-date">2023 · 06</time>
-            <div class="book-cover tone-1" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">长夜行舟</div>
-              <span class="cover-author">陆时砚 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-          <li class="timeline-book right">
-            <time class="timeline-date">2022 · 11</time>
-            <div class="book-cover tone-3" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">春山可望</div>
-              <span class="cover-author">沈砚 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-          <li class="timeline-book left">
-            <time class="timeline-date">2022 · 02</time>
-            <div class="book-cover" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">星子与灯</div>
-              <span class="cover-author">林未晞 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-          <li class="timeline-book right">
-            <time class="timeline-date">2021 · 09</time>
-            <div class="book-cover tone-2" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">夜航船札记</div>
-              <span class="cover-author">佚名 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-          <li class="timeline-book left">
-            <time class="timeline-date">2021 · 03</time>
-            <div class="book-cover tone-3" aria-hidden="true">
-              <span class="cover-edition">藏 书 星 河</span>
-              <div class="cover-title">山海拾遗</div>
-              <span class="cover-author">佚名 · 著</span><span class="cover-seal">阅</span>
-            </div>
-          </li>
-        </ol>
+      <div id="pop" class="book-pop" role="dialog" aria-modal="false" aria-label="书籍信息">
+        <span class="pop-title" id="popTitle"></span>
+        <span class="pop-author" id="popAuthor"></span>
+        <a class="pop-enter" id="popEnter" href="#">进入 →</a>
       </div>
     </div>
     <script>
-      // 背景渲染：真实星空 + 从上到下贯穿并持续流动的银河带。纯视觉演示，无业务逻辑。
+      // 参考 reactbits <Particles/>：球体分布、正弦漂移、缓慢自转的粒子星野。
+      // 端口为零依赖的 Canvas 2D 版本，保持独立单文件；书籍是其中明亮显眼的星。
       (() => {
-        const canvas = document.getElementById('sky');
-        const ctx = canvas && canvas.getContext('2d');
+        const canvas = document.getElementById('field');
+        const ctx = canvas.getContext('2d');
+        const pop = document.getElementById('pop');
+        const popTitle = document.getElementById('popTitle');
+        const popAuthor = document.getElementById('popAuthor');
+        const popEnter = document.getElementById('popEnter');
         if (!ctx) return;
+
         const reduceMotion =
           window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+        const SPREAD = 14; // 粒子云半径（略大于视口，填满四角）
+        const CAM = 18; // 相机距离
+        const SPEED = 0.12; // 动画节奏
+        const AMBIENT_COLORS = [
+          [214, 224, 255],
+          [180, 198, 255],
+          [235, 240, 255],
+          [245, 220, 190], // 少量暖色星
+        ];
+        // 书籍 = 明亮显眼的星；点击浮出书名与「进入」。p 为三维基准位置。
+        const BOOKS = [
+          { t: '山海拾遗', a: '佚名', p: [-6.2, 3.4, -2.0] },
+          { t: '夜航船札记', a: '佚名', p: [5.6, 4.1, 1.5] },
+          { t: '星子与灯', a: '林未晞', p: [-4.8, -2.2, 2.6] },
+          { t: '春山可望', a: '沈砚', p: [3.1, -3.8, -1.2] },
+          { t: '长夜行舟', a: '陆时砚', p: [6.6, -0.6, 3.0] },
+          { t: '归乡记', a: '苏晚', p: [-6.8, -0.4, -0.6] },
+          { t: '万木深', a: '周照', p: [0.8, 5.2, 2.2] },
+        ];
+
         let W = 0,
           H = 0,
-          dpr = 1;
-        let stars = [];
-        let nebula = null; // 预渲染、可竖直无缝平铺的银河带
-        let offset = 0; // 银河向下流动的位移
+          dpr = 1,
+          focal = 1000;
+        let ambient = [];
+        let elapsed = 0;
+        let rotZ = 0;
         let raf = 0;
-        const SPEED = 0.25; // 每帧下移像素（约 60fps）
+        let openIndex = -1; // 当前展开的书星索引
 
-        // 到中央银河的“接近度” 0..1：越靠水平中心越大，驱动星星的亮度与密度。
-        function bandCloseness(x) {
-          const dx = (x - W / 2) / (W * 0.17);
-          return Math.exp(-dx * dx);
+        const mix = (a, b, f) => a + (b - a) * f;
+        // 依次绕 X、Y、Z 轴旋转一个三维点。
+        function rot(x, y, z, rx, ry, rz) {
+          let c = Math.cos(rx),
+            s = Math.sin(rx);
+          const y1 = y * c - z * s,
+            z1 = y * s + z * c;
+          c = Math.cos(ry);
+          s = Math.sin(ry);
+          const x2 = x * c + z1 * s,
+            z2 = -x * s + z1 * c;
+          c = Math.cos(rz);
+          s = Math.sin(rz);
+          return [x2 * c - y1 * s, x2 * s + y1 * c, z2];
         }
-        // 造一颗星并入库；boost 提升亮度与体积（用于银河核心的密集亮星）。
-        function pushStar(x, y, boost) {
-          const c = bandCloseness(x);
-          const base = Math.pow(Math.random(), 2.2); // 偏暗，但保留更多中亮星
-          const mag = Math.min(1, (0.16 + 0.84 * base) * (0.32 + 0.72 * c) + boost);
-          const warm = Math.random() < 0.12; // 少量暖色星
-          const hue = warm ? 30 + Math.random() * 20 : 205 + Math.random() * 40;
-          const sat = warm ? 55 : 18 + Math.random() * 30;
-          const light = 80 + Math.random() * 16;
-          stars.push({
-            x,
-            y,
-            r: 0.4 + base * 1.9 * (0.7 + 0.3 * c) + boost * 1.2,
-            mag,
-            color: 'hsl(' + hue + ',' + sat + '%,' + light + '%)',
-            halo: mag > 0.62, // 亮星带柔光晕
-            tw: 0.6 + Math.random() * 1.9, // 闪烁速度
-            ph: Math.random() * Math.PI * 2, // 闪烁相位
-          });
+        // 单位球内均匀取点（体积均匀：半径取立方根）。
+        function sphere() {
+          let x, y, z, l;
+          do {
+            x = Math.random() * 2 - 1;
+            y = Math.random() * 2 - 1;
+            z = Math.random() * 2 - 1;
+            l = x * x + y * y + z * z;
+          } while (l > 1 || l === 0);
+          const r = Math.cbrt(Math.random());
+          return [x * r, y * r, z * r];
         }
-        // 星星：主星场（越近银河越密越亮）+ 紧贴中心的一簇明亮“星脊”。
-        function makeStars() {
-          stars = [];
-          const target = Math.min(620, Math.floor((W * H) / 4200));
-          let guard = 0;
-          while (stars.length < target && guard < target * 6) {
-            guard++;
-            const x = Math.random() * W;
-            const c = bandCloseness(x);
-            if (Math.random() > 0.14 + 0.86 * c) continue; // 边缘更稀疏
-            pushStar(x, Math.random() * H, 0);
-          }
-          const spine = Math.floor(target * 0.3);
-          for (let i = 0; i < spine; i++) {
-            const gx = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; // 近似高斯
-            pushStar(W / 2 + gx * W * 0.09, Math.random() * H, 0.15 + Math.random() * 0.25);
-          }
-        }
-        // 预渲染银河带到离屏画布，竖直方向无缝平铺（云团在 y 与 y±H 各画一次）。
-        function makeNebula() {
-          const off = document.createElement('canvas');
-          off.width = Math.floor(W * dpr);
-          off.height = Math.floor(H * dpr);
-          const g = off.getContext('2d');
-          g.scale(dpr, dpr);
-          const cx = W / 2;
+        const rand4 = () => [Math.random(), Math.random(), Math.random(), Math.random()];
 
-          // 明亮的竖直核心：一条贯穿上下的柔光（宽域 + 更亮的窄核）。
-          g.globalCompositeOperation = 'lighter';
-          const wide = g.createLinearGradient(cx - W * 0.2, 0, cx + W * 0.2, 0);
-          wide.addColorStop(0, 'rgba(60,74,150,0)');
-          wide.addColorStop(0.5, 'rgba(120,140,225,0.34)');
-          wide.addColorStop(1, 'rgba(60,74,150,0)');
-          g.fillStyle = wide;
-          g.fillRect(0, 0, W, H);
-          const inner = g.createLinearGradient(cx - W * 0.07, 0, cx + W * 0.07, 0);
-          inner.addColorStop(0, 'rgba(150,170,255,0)');
-          inner.addColorStop(0.5, 'rgba(175,195,255,0.3)');
-          inner.addColorStop(1, 'rgba(150,170,255,0)');
-          g.fillStyle = inner;
-          g.fillRect(0, 0, W, H);
-
-          const glow = [
-            [90, 120, 235],
-            [140, 110, 220],
-            [80, 150, 200],
-            [190, 140, 110],
-          ];
-          // 画一团竖向拉伸的云；在 y 与 y±H 各画一次以便无缝平铺。
-          const blob = (bx, by, rad, col, a, comp) => {
-            g.globalCompositeOperation = comp;
-            for (const dy of [-H, 0, H]) {
-              const gr = g.createRadialGradient(bx, by + dy, 0, bx, by + dy, rad);
-              gr.addColorStop(0, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + a + ')');
-              gr.addColorStop(1, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0)');
-              g.fillStyle = gr;
-              g.save();
-              g.translate(bx, by + dy);
-              g.scale(1, 1.8);
-              g.beginPath();
-              g.arc(0, 0, rad, 0, Math.PI * 2);
-              g.fill();
-              g.restore();
-            }
-          };
-          const N = Math.max(42, Math.floor(H / 15));
-          for (let i = 0; i < N; i++) {
-            const spread = (Math.random() - 0.5) * W * 0.34; // 横向偏离中心
-            const fade = Math.exp(-Math.pow(spread / (W * 0.2), 2)); // 越靠中心越浓
-            const col = glow[(Math.random() * glow.length) | 0];
-            const a = (0.06 + Math.random() * 0.13) * fade;
-            blob(cx + spread, Math.random() * H, 60 + Math.random() * 150, col, a, 'lighter');
+        function build() {
+          const count = Math.min(380, Math.floor((W * H) / 4200));
+          ambient = [];
+          for (let i = 0; i < count; i++) {
+            const s = sphere();
+            ambient.push({
+              x: s[0] * SPREAD,
+              y: s[1] * SPREAD,
+              z: s[2] * SPREAD,
+              r: rand4(),
+              col: AMBIENT_COLORS[(Math.random() * AMBIENT_COLORS.length) | 0],
+              size: 0.9 + Math.random() * 1.6,
+            });
           }
-          // 暗尘带：中心附近的暗色缺口，模拟银河的分裂暗纹。
-          for (let i = 0; i < N / 3; i++) {
-            const bx = cx + (Math.random() - 0.5) * W * 0.16;
-            blob(bx, Math.random() * H, 40 + Math.random() * 90, [5, 6, 15], 0.3, 'source-over');
+          for (const b of BOOKS) {
+            b.r = rand4();
+            b.sx = -999;
+            b.sy = -999;
+            b.sr = 0; // 当前屏幕半径（0 表示不可见/不可点）
           }
-          nebula = off;
         }
         function resize() {
           dpr = Math.min(window.devicePixelRatio || 1, 2);
-          // 兜底：某些环境初始上报 0，避免除零导致银河尺寸算成 NaN。
           W = window.innerWidth || document.documentElement.clientWidth || 1280;
           H = window.innerHeight || document.documentElement.clientHeight || 800;
           canvas.width = Math.floor(W * dpr);
           canvas.height = Math.floor(H * dpr);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          makeStars();
-          makeNebula();
+          focal = Math.min(W, H) * 1.15;
+          build();
         }
-
-        // 基底深空 + 把银河带两段竖直平铺并向下滚动 = 从上到下贯穿的动态银河。
-        function paintSky() {
-          const bg = ctx.createLinearGradient(0, 0, 0, H);
-          bg.addColorStop(0, '#070a1c');
-          bg.addColorStop(0.5, '#0b1026');
-          bg.addColorStop(1, '#05060f');
-          ctx.fillStyle = bg;
-          ctx.fillRect(0, 0, W, H);
-          if (nebula) {
-            const y = offset % H;
-            ctx.drawImage(nebula, 0, y, W, H);
-            ctx.drawImage(nebula, 0, y - H, W, H);
-          }
+        // 某基点在当前时刻（正弦漂移 + 自转）下的屏幕投影。
+        function project(bx, by, bz, r, rx, ry, rz) {
+          const t = elapsed * 0.001;
+          const dx = Math.sin(t * r[2] + 6.28 * r[3]) * mix(0.1, 1.5, r[0]);
+          const dy = Math.sin(t * r[1] + 6.28 * r[0]) * mix(0.1, 1.5, r[3]);
+          const dz = Math.sin(t * r[3] + 6.28 * r[1]) * mix(0.1, 1.5, r[2]);
+          const p = rot(bx + dx, by + dy, bz + dz, rx, ry, rz);
+          const vz = p[2] + CAM;
+          if (vz < 0.2) return null; // 相机之后，丢弃
+          const k = focal / vz;
+          return { x: W / 2 + p[0] * k, y: H / 2 - p[1] * k, k, vz };
         }
-        // 逐颗绘制星星：亮星带柔光晕，并做轻微闪烁。
-        function paintStars(t) {
-          for (const s of stars) {
-            const tw = reduceMotion ? 1 : 0.65 + 0.35 * Math.sin(t * 0.001 * s.tw + s.ph);
-            const alpha = Math.max(0, Math.min(1, s.mag * tw));
-            if (s.halo) {
-              const hr = s.r * 4.5;
-              const halo = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, hr);
-              halo.addColorStop(0, 'rgba(200,214,255,' + 0.5 * alpha + ')');
-              halo.addColorStop(1, 'rgba(200,214,255,0)');
-              ctx.globalCompositeOperation = 'lighter';
-              ctx.fillStyle = halo;
-              ctx.beginPath();
-              ctx.arc(s.x, s.y, hr, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.globalCompositeOperation = 'source-over';
-            }
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = s.color;
+        function depthAlpha(vz) {
+          const near = CAM - SPREAD,
+            far = CAM + SPREAD;
+          return Math.max(0.28, Math.min(1, 1.15 - (vz - near) / (far - near)));
+        }
+        function drawAmbient(rx, ry, rz) {
+          const t = elapsed * 0.001;
+          for (const s of ambient) {
+            const pr = project(s.x, s.y, s.z, s.r, rx, ry, rz);
+            if (!pr) continue;
+            const tw = reduceMotion ? 1 : 0.7 + 0.3 * Math.sin(t * 1.5 + s.r[1] * 6.28);
+            const a = depthAlpha(pr.vz) * tw;
+            const sh = 1 + 0.12 * Math.sin(t + s.r[1] * 6.28); // 轻微色彩流动
+            const rr = Math.min(255, s.col[0] * sh) | 0;
+            const gg = Math.min(255, s.col[1] * sh) | 0;
+            const bb = Math.min(255, s.col[2] * sh) | 0;
+            const rad = Math.max(0.45, s.size * pr.k * 0.018);
+            ctx.fillStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',' + a + ')';
             ctx.beginPath();
-            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.arc(pr.x, pr.y, rad, 0, 6.283);
             ctx.fill();
           }
-          ctx.globalAlpha = 1;
         }
-        function frame(t) {
-          offset += SPEED; // 银河持续向下流动
-          paintSky();
-          paintStars(t);
+        function drawBooks(rx, ry, rz) {
+          const t = elapsed * 0.001;
+          for (const b of BOOKS) {
+            const pr = project(b.p[0], b.p[1], b.p[2], b.r, rx, ry, rz);
+            if (!pr) {
+              b.sr = 0;
+              continue;
+            }
+            b.sx = pr.x;
+            b.sy = pr.y;
+            const pulse = reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2 + b.r[0] * 6.28);
+            const core = Math.max(2.2, 3.4 * pr.k * 0.03) * pulse;
+            b.sr = core;
+            const halo = core * 4.5;
+            const g = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, halo);
+            g.addColorStop(0, 'rgba(224,232,255,0.55)');
+            g.addColorStop(0.4, 'rgba(150,175,255,0.22)');
+            g.addColorStop(1, 'rgba(150,175,255,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(pr.x, pr.y, halo, 0, 6.283);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(245,249,255,0.98)';
+            ctx.beginPath();
+            ctx.arc(pr.x, pr.y, core, 0, 6.283);
+            ctx.fill();
+          }
+        }
+        function render() {
+          ctx.clearRect(0, 0, W, H);
+          const rx = reduceMotion ? 0 : Math.sin(elapsed * 0.0002) * 0.1;
+          const ry = reduceMotion ? 0 : Math.cos(elapsed * 0.0005) * 0.15;
+          ctx.globalCompositeOperation = 'lighter';
+          drawAmbient(rx, ry, rotZ);
+          ctx.globalCompositeOperation = 'source-over';
+          drawBooks(rx, ry, rotZ);
+          if (openIndex >= 0) positionPop(BOOKS[openIndex]);
+        }
+        function frame() {
+          elapsed += 16 * SPEED; // 稳定步进
+          rotZ += 0.01 * SPEED;
+          render();
           raf = requestAnimationFrame(frame);
         }
-        function draw() {
-          paintSky();
-          paintStars(0);
+        function positionPop(b) {
+          pop.style.left = b.sx + 'px';
+          pop.style.top = b.sy + 'px';
         }
+        function openBook(i) {
+          openIndex = i;
+          const b = BOOKS[i];
+          popTitle.textContent = b.t;
+          popAuthor.textContent = b.a + ' · 著';
+          popEnter.setAttribute('href', '#/book/' + (i + 1)); // 占位链接，未实现具体跳转
+          positionPop(b);
+          pop.classList.add('open');
+        }
+        function closeBook() {
+          openIndex = -1;
+          pop.classList.remove('open');
+        }
+        function hit(mx, my) {
+          for (let i = 0; i < BOOKS.length; i++) {
+            const b = BOOKS[i];
+            if (!b.sr) continue;
+            if (Math.hypot(mx - b.sx, my - b.sy) <= Math.max(14, b.sr + 10)) return i;
+          }
+          return -1;
+        }
+        canvas.addEventListener('click', (e) => {
+          const r = canvas.getBoundingClientRect();
+          const i = hit(e.clientX - r.left, e.clientY - r.top);
+          if (i >= 0) openBook(i);
+          else closeBook();
+        });
+        canvas.addEventListener('mousemove', (e) => {
+          const r = canvas.getBoundingClientRect();
+          canvas.style.cursor = hit(e.clientX - r.left, e.clientY - r.top) >= 0 ? 'pointer' : 'default';
+        });
+        pop.addEventListener('click', (e) => e.stopPropagation()); // 卡片内点击不关闭
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') closeBook();
+        });
         window.addEventListener(
           'resize',
           () => {
             resize();
-            if (reduceMotion) draw();
+            if (reduceMotion) render();
           },
           { passive: true },
         );
+
         resize();
-        if (reduceMotion) {
-          draw(); // 尊重「减少动态」：只画一帧静态星河，不启动循环。
-        } else {
-          raf = requestAnimationFrame(frame);
-        }
+        if (reduceMotion) render();
+        else raf = requestAnimationFrame(frame);
       })();
     </script>
   </body>

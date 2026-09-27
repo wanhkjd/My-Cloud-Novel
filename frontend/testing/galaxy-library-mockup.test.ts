@@ -2,37 +2,41 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// 独立静态视觉稿：真实星空 + 中央竖直贯穿的动态银河 + 示例书籍卡片。
-// jsdom 无法渲染 canvas，这里以静态结构断言守护两条硬性要求：
-// 1) 保留背景 canvas、动态银河与示例卡片；2) 去掉「云上书房」图标与底部标语。
-// vitest 从 frontend/ 运行，按工作目录解析视觉稿路径。
+// 独立静态视觉稿：参考 reactbits <Particles/> 的粒子星野（去掉银河），
+// 书籍是明亮可点的星，点击浮出书名与「进入」。jsdom 无法渲染 canvas，
+// 这里以静态结构断言守护核心要求。vitest 从 frontend/ 运行，按工作目录解析路径。
 const htmlPath = resolve(process.cwd(), 'mockups/galaxy-library.html');
 
 describe('galaxy library UI mockup', () => {
   const html = existsSync(htmlPath) ? readFileSync(htmlPath, 'utf8') : '';
 
-  it('exists as a self-contained HTML file', () => {
+  it('exists as a self-contained HTML file with a particle field canvas', () => {
     expect(existsSync(htmlPath)).toBe(true);
     expect(html).toContain('<!doctype html>');
     expect(html).toContain('<canvas');
-    expect(html).toContain('id="sky"');
+    expect(html).toContain('id="field"');
   });
 
-  it('draws a dynamic, top-to-bottom galaxy band with an animation loop', () => {
+  it('runs a particle starfield (reactbits Particles) with an animation loop', () => {
     expect(html).toContain('requestAnimationFrame');
-    expect(html.toLowerCase()).toContain('nebula');
-    // 尊重减少动态偏好：静止用户不跑动画。
+    expect(html.toLowerCase()).toContain('reactbits');
     expect(html).toContain('prefers-reduced-motion');
   });
 
-  it('shows each book as a cover only, without a synopsis', () => {
-    const cards = html.match(/class="timeline-book/g) ?? [];
-    expect(cards.length).toBeGreaterThanOrEqual(5);
-    expect(html).toContain('book-cover');
-    expect(html).toContain('cover-title');
-    // 只保留封面：不再有简介，也不再有承载简介的卡片文案块。
-    expect(html).not.toContain('timeline-description');
-    expect(html).not.toContain('timeline-card');
+  it('drops the galaxy band entirely', () => {
+    expect(html).not.toContain('银河');
+    expect(html.toLowerCase()).not.toContain('nebula');
+  });
+
+  it('renders books as bright stars that reveal a title and an enter link on click', () => {
+    expect(html).toContain('const BOOKS');
+    expect(html).toContain('山海拾遗'); // 示例书名
+    expect(html).toContain('book-pop'); // 点击浮出的卡片
+    expect(html).toContain('进入'); // 进入入口
+    expect(html).toContain("addEventListener('click'");
+    // 旧版封面 / 时间轴布局已移除。
+    expect(html).not.toContain('book-cover');
+    expect(html).not.toContain('timeline-book');
   });
 
   it('drops the 云上书房 brand icon and the footer tagline', () => {
