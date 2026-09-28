@@ -152,8 +152,8 @@
       </div>
     </div>
     <script>
-      // 参考 reactbits <Particles/>：球体分布、正弦漂移、缓慢自转的粒子星野。
-      // 端口为零依赖的 Canvas 2D 版本，保持独立单文件；书籍是其中明亮显眼的星。
+      // 一条弯曲、会流动的星河横贯中央；两侧散布明亮可点的书星。纯视觉演示。
+      // 星点风格延续 reactbits <Particles/> 的柔和光点与闪烁，端口为零依赖 Canvas 2D。
       (() => {
         const canvas = document.getElementById('field');
         const ctx = canvas.getContext('2d');
@@ -166,90 +166,121 @@
         const reduceMotion =
           window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const SPREAD = 14; // 粒子云半径（略大于视口，填满四角）
-        const CAM = 18; // 相机距离
         const SPEED = 0.12; // 动画节奏
-        const AMBIENT_COLORS = [
-          [214, 224, 255],
-          [180, 198, 255],
-          [235, 240, 255],
-          [245, 220, 190], // 少量暖色星
-        ];
-        // 书籍 = 明亮显眼的星；点击浮出书名与「进入」。p 为三维基准位置。
+        let A1 = 90, // 星河弯曲幅度（resize 时按屏宽设定）
+          A2 = 46;
+        // 书籍 = 明亮显眼的星，沿星河两侧分布。u=竖直位置(0..1)，off=相对河心的左右偏移(占屏宽比例)。
         const BOOKS = [
-          { t: '山海拾遗', a: '佚名', p: [-6.2, 3.4, -2.0] },
-          { t: '夜航船札记', a: '佚名', p: [5.6, 4.1, 1.5] },
-          { t: '星子与灯', a: '林未晞', p: [-4.8, -2.2, 2.6] },
-          { t: '春山可望', a: '沈砚', p: [3.1, -3.8, -1.2] },
-          { t: '长夜行舟', a: '陆时砚', p: [6.6, -0.6, 3.0] },
-          { t: '归乡记', a: '苏晚', p: [-6.8, -0.4, -0.6] },
-          { t: '万木深', a: '周照', p: [0.8, 5.2, 2.2] },
-          { t: '观星录', a: '裴远', p: [-2.4, 5.4, 0.6] },
-          { t: '空山集', a: '樊照', p: [7.4, 1.8, -2.2] },
-          { t: '拾光者', a: '安宁', p: [-7.2, 2.6, 2.2] },
-          { t: '尘世绘', a: '孟晓', p: [2.2, 2.4, -3.2] },
-          { t: '海边的信', a: '林越', p: [4.2, -4.6, 1.0] },
+          { t: '山海拾遗', a: '佚名', u: 0.24, off: -0.14 },
+          { t: '夜航船札记', a: '佚名', u: 0.3, off: 0.19 },
+          { t: '星子与灯', a: '林未晞', u: 0.37, off: -0.2 },
+          { t: '春山可望', a: '沈砚', u: 0.44, off: 0.12 },
+          { t: '长夜行舟', a: '陆时砚', u: 0.5, off: 0.21 },
+          { t: '归乡记', a: '苏晚', u: 0.57, off: -0.16 },
+          { t: '万木深', a: '周照', u: 0.63, off: 0.14 },
+          { t: '观星录', a: '裴远', u: 0.7, off: -0.22 },
+          { t: '空山集', a: '樊照', u: 0.77, off: 0.18 },
+          { t: '拾光者', a: '安宁', u: 0.83, off: -0.12 },
+          { t: '尘世绘', a: '孟晓', u: 0.9, off: 0.17 },
+          { t: '海边的信', a: '林越', u: 0.95, off: -0.19 },
         ];
 
         let W = 0,
           H = 0,
-          dpr = 1,
-          focal = 1000;
+          dpr = 1;
+        let elapsed = 0,
+          flow = 0,
+          raf = 0,
+          openIndex = -1; // 当前展开的书星索引
         let ambient = [];
-        let elapsed = 0;
-        let rotZ = 0;
-        let raf = 0;
-        let openIndex = -1; // 当前展开的书星索引
+        let stream = [];
+        let nebula = null; // 预渲染的弯曲星河辉光
+        BOOKS.forEach((b) => {
+          b.ph = Math.random() * 6.28;
+          b.sr = 0; // 屏幕半径（0=不可点）
+        });
 
-        const mix = (a, b, f) => a + (b - a) * f;
-        // 依次绕 X、Y、Z 轴旋转一个三维点。
-        function rot(x, y, z, rx, ry, rz) {
-          let c = Math.cos(rx),
-            s = Math.sin(rx);
-          const y1 = y * c - z * s,
-            z1 = y * s + z * c;
-          c = Math.cos(ry);
-          s = Math.sin(ry);
-          const x2 = x * c + z1 * s,
-            z2 = -x * s + z1 * c;
-          c = Math.cos(rz);
-          s = Math.sin(rz);
-          return [x2 * c - y1 * s, x2 * s + y1 * c, z2];
+        // 星河中心线 x：两条不同频率的正弦叠加 => 自然弯曲（非笔直）；以 y/H 为相位，竖直无缝。
+        function bandX(y) {
+          const p = (y / H) * Math.PI * 2;
+          return W / 2 + A1 * Math.sin(p) + A2 * Math.sin(2 * p + 1.1);
         }
-        // 单位球内均匀取点（体积均匀：半径取立方根）。
-        function sphere() {
-          let x, y, z, l;
-          do {
-            x = Math.random() * 2 - 1;
-            y = Math.random() * 2 - 1;
-            z = Math.random() * 2 - 1;
-            l = x * x + y * y + z * z;
-          } while (l > 1 || l === 0);
-          const r = Math.cbrt(Math.random());
-          return [x * r, y * r, z * r];
+        const sigma = () => W * 0.14; // 星河横向柔和半宽
+        // 到河心的接近度 0..1，驱动星星的密度与亮度。
+        function closeness(x, y) {
+          const d = (x - bandX(y)) / sigma();
+          return Math.exp(-d * d);
         }
-        const rand4 = () => [Math.random(), Math.random(), Math.random(), Math.random()];
 
-        function build() {
-          const count = Math.min(720, Math.floor((W * H) / 2200));
+        function makeAmbient() {
+          const count = Math.min(760, Math.floor((W * H) / 2200));
           ambient = [];
-          for (let i = 0; i < count; i++) {
-            const s = sphere();
+          let guard = 0;
+          while (ambient.length < count && guard < count * 6) {
+            guard++;
+            const x = Math.random() * W;
+            const y = Math.random() * H;
+            const c = closeness(x, y);
+            if (Math.random() > 0.12 + 0.88 * c) continue; // 越近星河越密
+            const base = Math.pow(Math.random(), 2.4); // 多数很暗
+            const warm = Math.random() < 0.1;
+            const col = warm ? [245, 220, 190] : [(210 + Math.random() * 30) | 0, 224, 255];
             ambient.push({
-              x: s[0] * SPREAD,
-              y: s[1] * SPREAD,
-              z: s[2] * SPREAD,
-              r: rand4(),
-              col: AMBIENT_COLORS[(Math.random() * AMBIENT_COLORS.length) | 0],
-              size: 0.9 + Math.random() * 1.6,
+              x,
+              y,
+              size: 0.5 + base * 1.8,
+              mag: (0.14 + 0.86 * base) * (0.3 + 0.7 * c),
+              col,
+              tw: 0.6 + Math.random() * 1.8,
+              ph: Math.random() * 6.28,
             });
           }
-          for (const b of BOOKS) {
-            b.r = rand4();
-            b.sx = -999;
-            b.sy = -999;
-            b.sr = 0; // 当前屏幕半径（0 表示不可见/不可点）
+        }
+        // 河中流动的星：贴着中心线并带横向抖动，持续下移循环 => 星河在“流”。
+        function makeStream() {
+          const count = Math.min(260, Math.floor((W * H) / 6500));
+          stream = [];
+          for (let i = 0; i < count; i++) {
+            stream.push({
+              u: Math.random(),
+              jitter: (Math.random() - 0.5) * sigma() * 1.2,
+              size: 0.5 + Math.random() * 1.2,
+              mag: 0.35 + Math.random() * 0.65,
+              tw: 0.6 + Math.random() * 1.8,
+              ph: Math.random() * 6.28,
+              sp: 0.6 + Math.random() * 0.8,
+            });
           }
+        }
+        // 预渲染弯曲星河辉光到离屏画布（竖直无缝平铺）。
+        function makeNebula() {
+          const off = document.createElement('canvas');
+          off.width = Math.floor(W * dpr);
+          off.height = Math.floor(H * dpr);
+          const g = off.getContext('2d');
+          g.scale(dpr, dpr);
+          g.globalCompositeOperation = 'lighter';
+          const cols = [
+            [96, 120, 235],
+            [140, 110, 216],
+            [80, 150, 205],
+          ];
+          for (let y = 0; y < H; y += 24) {
+            const x = bandX(y);
+            const col = cols[(Math.random() * cols.length) | 0];
+            const rad = sigma() * (0.9 + Math.random() * 0.5);
+            const a = 0.05 + Math.random() * 0.05;
+            for (const dy of [-H, 0, H]) {
+              const gr = g.createRadialGradient(x, y + dy, 0, x, y + dy, rad);
+              gr.addColorStop(0, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + a + ')');
+              gr.addColorStop(1, 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0)');
+              g.fillStyle = gr;
+              g.beginPath();
+              g.arc(x, y + dy, rad, 0, 6.283);
+              g.fill();
+            }
+          }
+          nebula = off;
         }
         function resize() {
           dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -258,85 +289,80 @@
           canvas.width = Math.floor(W * dpr);
           canvas.height = Math.floor(H * dpr);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          focal = Math.min(W, H) * 1.15;
-          build();
+          A1 = W * 0.07;
+          A2 = W * 0.036;
+          makeAmbient();
+          makeStream();
+          makeNebula();
         }
-        // 某基点在当前时刻（正弦漂移 + 自转）下的屏幕投影。
-        function project(bx, by, bz, r, rx, ry, rz) {
-          const t = elapsed * 0.001;
-          const dx = Math.sin(t * r[2] + 6.28 * r[3]) * mix(0.1, 1.5, r[0]);
-          const dy = Math.sin(t * r[1] + 6.28 * r[0]) * mix(0.1, 1.5, r[3]);
-          const dz = Math.sin(t * r[3] + 6.28 * r[1]) * mix(0.1, 1.5, r[2]);
-          const p = rot(bx + dx, by + dy, bz + dz, rx, ry, rz);
-          const vz = p[2] + CAM;
-          if (vz < 0.2) return null; // 相机之后，丢弃
-          const k = focal / vz;
-          return { x: W / 2 + p[0] * k, y: H / 2 - p[1] * k, k, vz };
+        function drawNebula() {
+          if (nebula) ctx.drawImage(nebula, 0, 0, W, H);
         }
-        function depthAlpha(vz) {
-          const near = CAM - SPREAD,
-            far = CAM + SPREAD;
-          return Math.max(0.28, Math.min(1, 1.15 - (vz - near) / (far - near)));
-        }
-        function drawAmbient(rx, ry, rz) {
+        function drawAmbient() {
           const t = elapsed * 0.001;
           for (const s of ambient) {
-            const pr = project(s.x, s.y, s.z, s.r, rx, ry, rz);
-            if (!pr) continue;
-            const tw = reduceMotion ? 1 : 0.7 + 0.3 * Math.sin(t * 1.5 + s.r[1] * 6.28);
-            const a = depthAlpha(pr.vz) * tw;
-            const sh = 1 + 0.12 * Math.sin(t + s.r[1] * 6.28); // 轻微色彩流动
+            const tw = reduceMotion ? 1 : 0.65 + 0.35 * Math.sin(t * s.tw + s.ph);
+            const a = Math.min(1, s.mag * tw);
+            const sh = 1 + 0.1 * Math.sin(t + s.ph); // 轻微色彩流动
             const rr = Math.min(255, s.col[0] * sh) | 0;
             const gg = Math.min(255, s.col[1] * sh) | 0;
             const bb = Math.min(255, s.col[2] * sh) | 0;
-            const rad = Math.max(0.45, s.size * pr.k * 0.018);
             ctx.fillStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',' + a + ')';
             ctx.beginPath();
-            ctx.arc(pr.x, pr.y, rad, 0, 6.283);
+            ctx.arc(s.x, s.y, s.size, 0, 6.283);
             ctx.fill();
           }
         }
-        function drawBooks(rx, ry, rz) {
+        function drawStream() {
+          const t = elapsed * 0.001;
+          for (const s of stream) {
+            const y = ((s.u + flow * s.sp) % 1) * H;
+            const x = bandX(y) + s.jitter;
+            const tw = reduceMotion ? 1 : 0.6 + 0.4 * Math.sin(t * s.tw + s.ph);
+            ctx.fillStyle = 'rgba(206,220,255,' + Math.min(1, s.mag * tw) + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, s.size, 0, 6.283);
+            ctx.fill();
+          }
+        }
+        function drawBooks() {
           const t = elapsed * 0.001;
           for (const b of BOOKS) {
-            const pr = project(b.p[0], b.p[1], b.p[2], b.r, rx, ry, rz);
-            if (!pr) {
-              b.sr = 0;
-              continue;
-            }
-            b.sx = pr.x;
-            b.sy = pr.y;
-            const pulse = reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2 + b.r[0] * 6.28);
-            const core = Math.max(2.2, 3.4 * pr.k * 0.03) * pulse;
+            const y = b.u * H;
+            const x = bandX(y) + b.off * W;
+            b.sx = x;
+            b.sy = y;
+            const pulse = reduceMotion ? 1 : 0.85 + 0.15 * Math.sin(t * 2 + b.ph);
+            const core = 3.4 * pulse;
             b.sr = core;
-            const halo = core * 4.5;
-            const g = ctx.createRadialGradient(pr.x, pr.y, 0, pr.x, pr.y, halo);
-            g.addColorStop(0, 'rgba(224,232,255,0.55)');
-            g.addColorStop(0.4, 'rgba(150,175,255,0.22)');
+            const halo = core * 5;
+            const g = ctx.createRadialGradient(x, y, 0, x, y, halo);
+            g.addColorStop(0, 'rgba(224,232,255,0.6)');
+            g.addColorStop(0.4, 'rgba(150,175,255,0.24)');
             g.addColorStop(1, 'rgba(150,175,255,0)');
             ctx.fillStyle = g;
             ctx.beginPath();
-            ctx.arc(pr.x, pr.y, halo, 0, 6.283);
+            ctx.arc(x, y, halo, 0, 6.283);
             ctx.fill();
             ctx.fillStyle = 'rgba(245,249,255,0.98)';
             ctx.beginPath();
-            ctx.arc(pr.x, pr.y, core, 0, 6.283);
+            ctx.arc(x, y, core, 0, 6.283);
             ctx.fill();
           }
         }
         function render() {
           ctx.clearRect(0, 0, W, H);
-          const rx = reduceMotion ? 0 : Math.sin(elapsed * 0.0002) * 0.1;
-          const ry = reduceMotion ? 0 : Math.cos(elapsed * 0.0005) * 0.15;
+          drawNebula();
           ctx.globalCompositeOperation = 'lighter';
-          drawAmbient(rx, ry, rotZ);
+          drawAmbient();
+          drawStream();
           ctx.globalCompositeOperation = 'source-over';
-          drawBooks(rx, ry, rotZ);
+          drawBooks();
           if (openIndex >= 0) positionPop(BOOKS[openIndex]);
         }
         function frame() {
           elapsed += 16 * SPEED; // 稳定步进
-          rotZ += 0.01 * SPEED;
+          if (!reduceMotion) flow += 0.0008; // 星河向下流动
           render();
           raf = requestAnimationFrame(frame);
         }

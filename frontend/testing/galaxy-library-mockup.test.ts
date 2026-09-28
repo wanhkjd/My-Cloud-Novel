@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// 独立静态视觉稿：参考 reactbits <Particles/> 的粒子星野（去掉银河），
-// 书籍是明亮可点的星，点击浮出书名与「进入」。jsdom 无法渲染 canvas，
+// 独立静态视觉稿：一条弯曲、会流动的星河横贯中央（reactbits Particles 风格的星点），
+// 两侧散布明亮可点的书星，点击浮出书名与「进入」。jsdom 无法渲染 canvas，
 // 这里以静态结构断言守护核心要求。vitest 从 frontend/ 运行，按工作目录解析路径。
 const htmlPath = resolve(process.cwd(), 'mockups/galaxy-library.html');
 
@@ -23,9 +23,11 @@ describe('galaxy library UI mockup', () => {
     expect(html).toContain('prefers-reduced-motion');
   });
 
-  it('drops the galaxy band entirely', () => {
-    expect(html).not.toContain('银河');
-    expect(html.toLowerCase()).not.toContain('nebula');
+  it('runs a curved (not straight) flowing star river band', () => {
+    expect(html).toContain('function bandX'); // 星河中心线
+    expect(html).toContain('Math.sin'); // 弯曲：正弦叠加，非笔直
+    expect(html).toContain('makeNebula'); // 星河辉光
+    expect(html).toContain('flow'); // 向下流动
   });
 
   it('renders books as bright stars that reveal a title and an enter link on click', () => {
